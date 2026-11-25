@@ -13,6 +13,30 @@ HLDC_NATIVE_ONLY = os.environ.get('HLDC_NATIVE_ONLY') == '1'
 # Translated GML: a file listing code entries, or "all".
 HLDC_TRANSLATE = os.environ.get('HLDC_TRANSLATE')
 HLDC_PART_SOURCES = []
+
+
+def portable_vm_source(generated):
+    """vm.c as the port builds it: native serialization / native-only / translated GML / native scripts / compiled
+    entries applied in the same order as the feedback build."""
+    if HLDC_NATIVE_SERIALIZE:
+        from native_serialize_source import with_native_serialize
+        generated = with_native_serialize(generated)
+    if HLDC_NATIVE_ONLY:
+        from native_only_source import with_native_only_vm
+        generated = with_native_only_vm(generated)
+    if HLDC_TRANSLATE:
+        from translated_gml_source import all_entries, with_translated_gml
+        names = all_entries() if HLDC_TRANSLATE == "all" else \
+            [line.strip() for line in Path(HLDC_TRANSLATE).read_text().splitlines() if line.strip()]
+        generated, parts = with_translated_gml(generated, names, stats=os.environ.get("HLDC_STATS") == "1")
+        HLDC_PART_SOURCES[:] = parts
+    if HLDC_NATIVE_SCRIPTS:
+        from native_scripts_source import with_native_scripts
+        generated = with_native_scripts(generated)
+    if HLDC_ENTRIES:
+        from gml_compiler_source import with_compiled_gml
+        generated = with_compiled_gml(generated, HLDC_ENTRIES)
+    return generated
 HLDC_PART_OBJECTS = []
 import sys
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -422,9 +446,9 @@ if options.vm_feedback:
     options.vm_feedback = options.vm_feedback.resolve()
     if not (options.vm_feedback / "vm.gcda").is_file():
         parser.error("--vm-feedback requires a directory containing vm.gcda")
-if options.stream_slot_obstacles and not options.vm_feedback:
+if options.stream_slot_obstacles and not (options.vm_feedback or options.vm_training):
     parser.error("--stream-slot-obstacles requires the 02.74 instance-slot VM feedback")
-if options.stream_matrix_cache and not options.vm_feedback:
+if options.stream_matrix_cache and not (options.vm_feedback or options.vm_training):
     parser.error("--stream-matrix-cache requires the 02.74 instance-slot VM feedback")
 if options.plain_shader_trial and (not options.vm_feedback or options.playable):
     parser.error("--plain-shader-trial requires the 02.74 VM feedback and an isolated test title")
@@ -1454,7 +1478,16 @@ void hldLogMemoryHeadroom(void) {
         argv = [flag for flag in argv if not flag.startswith("-flto")]
         argv[argv.index("-o") + 1] = obj.name
         profile_input = options.vm_feedback if vm_profile_unit else options.engine_feedback
-        if profile_input:
+        if vm_profile_unit and os.environ.get("HLDC_PORTABLE_PROFILE") == "1":
+            # GCC keys each function's profile to the file names it sees (the source and every header). Training and
+            # feedback builds both compile the same generated vm-portable.c from the build directory, with every path
+            # inside this checkout written relative to it, so a profile recorded in one checkout matches any other.
+            generated = portable_vm_source(dst.read_text())
+            (out / "vm-portable.c").write_text(generated)
+            argv[-1] = "vm-portable.c"
+            argv = [arg if arg.startswith("-fprofile") else arg.replace(str(root), os.path.relpath(root, out))
+                    for arg in argv]
+        elif profile_input:
             training_directory = "arm-vm-training" if vm_profile_unit else "arm-engine-training"
             if options.classified_vm_entry:
                 training_directory = "arm-classified-vm-training"
@@ -1520,7 +1553,19 @@ void hldLogMemoryHeadroom(void) {
         # recorded at, so a checkout elsewhere cannot use it (scripts/build.py sets this).
         argv = [a for a in argv if not a.startswith(("-fprofile-use", "-fprofile-partial-training"))
                 and "missing-profile" not in a and "coverage-mismatch" not in a]
-    if name == "vm.c" and options.vm_feedback and not no_compiler_feedback:
+    portable_feedback = (vm_profile_unit and options.vm_feedback and not no_compiler_feedback
+                         and os.environ.get("HLDC_PORTABLE_PROFILE") == "1")
+    if portable_feedback:
+        argv = [a.replace("-Werror=missing-profile", "-Wno-error=missing-profile")
+                 .replace("-Werror=coverage-mismatch", "-Wno-error=coverage-mismatch") for a in argv]
+        compiler = subprocess.run(argv, cwd=compile_directory, stderr=subprocess.PIPE, text=True,
+                                  env={**os.environ, "LC_ALL": "C"})
+        print(compiler.stderr, file=sys.stderr, end="")
+        compiler.check_returncode()
+        unmatched = re.findall(r"warning: (.+) \[-W(coverage-mismatch|missing-profile)\]$", compiler.stderr, re.M)
+        print(f"VM compiler feedback (portable profile): {len(unmatched)} functions without matching counters",
+              flush=True)
+    elif name == "vm.c" and options.vm_feedback and not no_compiler_feedback:
         # The SDK discards mismatched counters and estimates those functions.
         # Require valid feedback everywhere except the observed GCC 15.2
         # graph differences in this exact VM source.
