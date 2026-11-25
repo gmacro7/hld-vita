@@ -3118,8 +3118,10 @@ void hldReportQuietShadowLog(int frame) {
 
 ''' + anchor)
             anchor = '    logInfo("Game: %s\\n", val);'
-            code = replace_once(code, anchor, r'''    static const char shadowDiagnostic[] = "Found an object in shadow search-- i=";
-    const bool shadowSearch = strncmp(val, shadowDiagnostic, sizeof(shadowDiagnostic) - 1) == 0;
+            code = replace_once(code, anchor, r'''        // The game's shadow-search diagnostic line, recognised by the length and FNV-1a hash of its fixed prefix.
+    bool shadowSearch = true;
+    { uint32_t hash = 2166136261u; for (int i = 0; i < 37; ++i) { if (val[i] == '\0') { shadowSearch = false; break; }
+      hash = (hash ^ (uint8_t) val[i]) * 16777619u; } shadowSearch = shadowSearch && hash == 0x9c13812cu; }
     hldShadowLogCount += shadowSearch;
     if (!shadowSearch || !hldQuietShadowLog) logInfo("Game: %s\n", val);''')
         if options.audio_start_profile or options.lazy_audio_length:

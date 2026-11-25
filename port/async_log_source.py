@@ -1,7 +1,7 @@
 """Vita runtime.log written by a background thread.
 
 Every log line used to be fflush'd to the memory card on the calling thread. During combat the game logs from enemy
-hit/death code ("Sword collision was not hit with before", "added state..."), and one flush could block the game
+hit/death and state-change code, and one flush could block the game
 thread 20-130 ms. Lines now go into a ring buffer that a low-priority thread drains every 20 ms; errors still drain
 synchronously so a crash keeps its last lines.
 """
