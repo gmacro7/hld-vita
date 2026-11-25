@@ -30,6 +30,7 @@ WORK = ROOT / "work"
 OUT = ROOT / "port" / "build-out"
 sys.path.insert(0, str(ROOT / "scripts"))
 import bootstrap  # noqa: E402
+from progress import Timer  # noqa: E402
 from bootstrap import exe, venv_python, WINDOWS  # noqa: E402
 
 TITLE_ID = os.environ.get("HLD_TITLE_ID", "HLDV00001")
@@ -125,16 +126,16 @@ def compile_game_code(recipe, sdk, parts):
     step(f"Compiling the interpreter and {len(parts)} translated parts")
     vm = compiler(substitute(recipe["vm_compile"], sdk), sdk)
     LOG.unlink(missing_ok=True)
-    result = subprocess.run(vm, cwd=OUT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    with Timer("compiling the interpreter"):
+        result = subprocess.run(vm, cwd=OUT, capture_output=True, text=True, encoding="utf-8", errors="replace")
     LOG.write_text("### interpreter (vm-portable.c)\n" + result.stdout + result.stderr, encoding="utf-8")
     if result.returncode != 0:
         print("\n".join(result.stderr.splitlines()[-25:]))
         raise SystemExit(f"The interpreter failed to compile; the full output is in {LOG}")
     unmatched = result.stderr.count("[-Wmissing-profile]") + result.stderr.count("[-Wcoverage-mismatch]")
-    print(f"interpreter compiled ({unmatched} functions without matching profile data)")
+    print(f"  ({unmatched} interpreter functions without matching profile data)")
     base = compiler(substitute(recipe["part_compile"], sdk), sdk)
     source_index = next(i for i, token in enumerate(base) if token.endswith(".c") and not token.startswith("-"))
-    print("(this takes a few minutes and prints nothing until it is done)", flush=True)
     objects, running = [], []
     for part in parts:
         argv = list(base)
@@ -144,6 +145,10 @@ def compile_game_code(recipe, sdk, parts):
         objects.append(part.with_suffix(".obj"))
         log = part.with_suffix(".log").open("w", encoding="utf-8", errors="replace")
         running.append((subprocess.Popen(argv, cwd=OUT, stdout=log, stderr=subprocess.STDOUT), log, part))
+    finished = lambda: f"{sum(p.poll() is not None for p, _, _ in running)}/{len(running)} parts done"
+    with Timer("compiling the translated scripts (a few minutes)", status=finished):
+        for process, _, _ in running:
+            process.wait()
     for process, log, part in running:
         code = process.wait()
         log.close()
@@ -153,7 +158,6 @@ def compile_game_code(recipe, sdk, parts):
         if code != 0:
             print("\n".join(text.splitlines()[-25:]))
             raise SystemExit(f"{part.name} failed to compile; the full output is in {LOG}")
-    print(f"compiled {len(parts)} translated parts", flush=True)
     return [OUT / "vm.obj", *objects]
 
 
@@ -165,7 +169,8 @@ def link(recipe, sdk, objects):
             argv += [str(p) for p in objects]
         else:
             argv.append(token)
-    quiet(argv, "Linking")
+    with Timer("linking"):
+        quiet(argv, "Linking")
     elf = OUT / "butterscotch"
     quiet([str(exe(sdk / "bin" / "vita-elf-create")), str(elf), str(OUT / "butterscotch.velf")], "vita-elf-create")
     quiet([str(exe(sdk / "bin" / "vita-make-fself")), "-c", str(OUT / "butterscotch.velf"), str(OUT / "eboot.bin")],

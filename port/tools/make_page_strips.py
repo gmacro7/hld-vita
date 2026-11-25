@@ -36,9 +36,11 @@ count = struct.unpack_from("<I", data, txtr)[0]
 out = Path(options.out)
 out.mkdir(parents=True, exist_ok=True)
 total = 0
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from progress import Bar  # noqa: E402
+bar = Bar(count, "page strips written")
 for page in range(count):
-    if page and page % 25 == 0:
-        print(f"{page}/{count} pages", flush=True)
+    bar.update(page)
     entry = struct.unpack_from("<I", data, txtr + 4 + 4 * page)[0]
     blob = struct.unpack_from("<I", data, entry + 4)[0]
     end = data.index(b"IEND", blob) + 8
@@ -71,4 +73,5 @@ for page in range(count):
     body = (b"HLZ1" if options.plain else b"HLZ3") + struct.pack("<III", width, height, len(blocks)) + b"".join(header) + b"".join(blocks)
     (out / f"p{page:03d}.hlz").write_bytes(body)
     total += len(body)
+bar.finish(False)
 print(f"wrote {count} pages, {total / 2**20:.0f} MB")

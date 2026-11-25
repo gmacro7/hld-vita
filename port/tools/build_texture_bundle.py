@@ -68,6 +68,9 @@ def main():
         encoder.encode.restype = None
     staged = output.with_suffix(".part")
     png_pages = 0
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from progress import Bar
+    bar = Bar(150, "texture pages repacked")
     with source.open("rb") as wad, mmap.mmap(wad.fileno(), 0, access=mmap.ACCESS_READ) as data:
         with staged.open("wb") as stream:
             stream.write(struct.pack("<I", 150))
@@ -97,8 +100,8 @@ def main():
                     payload = pvr + bc3_raw
                 stream.write(struct.pack("<I", len(payload)))
                 stream.write(payload)
-                if (page + 1) % 25 == 0:
-                    print(f"{page + 1}/150 pages, {png_pages} kept as original PNG", flush=True)
+                bar.update(page + 1)
+    bar.finish(False)
     staged.replace(output)
     print(f"{output.name} ready: {output.stat().st_size:,} bytes, {150-png_pages} BC3, {png_pages} original PNG", flush=True)
 

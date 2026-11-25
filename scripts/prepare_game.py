@@ -85,11 +85,22 @@ def decompile(data):
             stream.write(struct.pack("<I", 1773))
         environment = dict(os.environ, HLD_DECOMPILE_LIST=str(ROOT / "port" / "hot-entries-v5.txt"),
                            HLD_DECOMPILE_OUT=str(out), DOTNET_CLI_TELEMETRY_OPTOUT="1")
-        print(f"Decompiling {len(names)} scripts (a few minutes)...", flush=True)
-        result = subprocess.run([str(exe(DEPS / "utmt" / "UndertaleModCli")), "load", str(copy), "-s",
-                                 str(ROOT / "port" / "tools" / "decompile_list.csx")],
-                                env=environment, capture_output=True, text=True)
-        (WORK / "decompile.log").write_text(result.stdout + result.stderr)
+        from progress import Bar
+        bar = Bar(len(names), "scripts decompiled")
+        done = 0
+        with (WORK / "decompile.log").open("w", encoding="utf-8", errors="replace") as log:
+            process = subprocess.Popen([str(exe(DEPS / "utmt" / "UndertaleModCli")), "load", str(copy), "-s",
+                                        str(ROOT / "port" / "tools" / "decompile_list.csx")], env=environment,
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                       encoding="utf-8", errors="replace")
+            for line in process.stdout:
+                log.write(line)
+                if line.startswith(("OK ", "FAILED ", "TIMEOUT ", "MISSING ")):
+                    done += 1
+                    bar.update(done)
+            process.wait()
+        bar.finish(False)
+        result = process
     missing = [n for n in names if not (out / f"{n}.gml").is_file()]
     if result.returncode != 0 or missing:
         raise SystemExit(f"Decompiling failed ({len(missing)} scripts missing); see work/decompile.log.")

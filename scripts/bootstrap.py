@@ -25,6 +25,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 DEPS = ROOT / "deps"
 CACHE = DEPS / "downloads"
 MANIFEST = json.loads((DEPS / "dependencies.json").read_text())
@@ -62,10 +63,20 @@ def download(url, path, expected):
     if path.is_file() and sha256(path) == expected:
         return path
     CACHE.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading {url}", flush=True)
+    print(f"Downloading {url.rsplit('/', 1)[-1]}", flush=True)
     partial = path.with_suffix(path.suffix + ".part")
+    from progress import Bar
     with urllib.request.urlopen(url) as source, partial.open("wb") as target:
-        shutil.copyfileobj(source, target, 1 << 20)
+        total = int(source.headers.get("Content-Length") or 0)
+        bar = Bar(total, path.name, unit="MB") if total else None
+        done = 0
+        while chunk := source.read(1 << 20):
+            target.write(chunk)
+            done += len(chunk)
+            if bar:
+                bar.update(done)
+        if bar:
+            bar.finish(False)
     if sha256(partial) != expected:
         partial.unlink()
         raise SystemExit(f"Checksum mismatch for {url}")

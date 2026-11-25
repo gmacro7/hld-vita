@@ -59,7 +59,8 @@ def main():
     for path in ["port/hot-entries-v5.txt", "port/page_strips.h", "port/tools", "port/vm-profile",
                  "deps/dependencies.json", "deps/bc3", "assets/livearea", "LICENSE", "NOTICE.md",
                  "scripts/kit_build.py", "scripts/bootstrap.py", "scripts/fetch_game.py", "scripts/prepare_game.py",
-                 "scripts/install.py", "scripts/requirements.txt", "scripts/make_livearea.py"]:
+                 "scripts/install.py", "scripts/requirements.txt", "scripts/make_livearea.py",
+                 "scripts/progress.py"]:
         copy(ROOT / path, kit / path)
     for module in (ROOT / "port").glob("*.py"):
         copy(module, kit / "port" / module.name)
