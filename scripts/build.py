@@ -36,6 +36,7 @@ def configure_engine():
     subprocess.run([
         "cmake", "-G", "Ninja", "-S", str(ROOT / "engine"), "-B", str(ENGINE_BUILD),
         f"-DCMAKE_TOOLCHAIN_FILE={SDK / 'share' / 'vita.toolchain.cmake'}", f"-DVITASDK={SDK}",
+        f"-DPKG_CONFIG_EXECUTABLE={DEPS / 'vita-pkg-config'}",
         "-DPLATFORM=vita", "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON",
         f"-DCMAKE_C_FLAGS=-I{TARGET / 'include'} -mtune=cortex-a9 -DHLD_COMPACT_RVALUES",
         f"-DCMAKE_C_STANDARD_LIBRARIES={stdlibs}",

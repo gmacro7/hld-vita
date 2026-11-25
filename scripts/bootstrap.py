@@ -176,9 +176,9 @@ def install_venv():
 def main():
     if sys.version_info < (3, 12):
         raise SystemExit("Python 3.12 or newer is required.")
-    for program in ("git", "cmake", "ninja", "make"):
+    for program in ("git", "cmake", "ninja", "make", "pkg-config"):
         if shutil.which(program) is None:
-            raise SystemExit(f"'{program}' is required (macOS: brew install cmake ninja; Linux: your package manager).")
+            raise SystemExit(f"'{program}' is required (macOS: brew install cmake ninja pkg-config; Linux: your package manager).")
     name = host()
     sdk = install_sdk(name)
     install_utmt(name)

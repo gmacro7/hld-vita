@@ -44,8 +44,8 @@ If you own the game on Steam:
 
 ## Building
 
-You need macOS (Apple silicon or Intel) or Linux x86-64, with Python 3.12+, `git`, `cmake`, `ninja`, `make` and
-a C compiler (macOS: `xcode-select --install`, `brew install cmake ninja`).
+You need macOS (Apple silicon or Intel) or Linux x86-64, with Python 3.12+, `git`, `cmake`, `ninja`, `make`,
+`pkg-config` and a C compiler (macOS: `xcode-select --install`, `brew install cmake ninja pkg-config`).
 
 ```sh
 git clone <this repository> hld-vita && cd hld-vita

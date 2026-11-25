@@ -1,0 +1,5 @@
+#!/bin/sh
+# pkg-config for the Vita: only the VitaSDK softfp library layer (deps/softfp-target), never the host's libraries.
+export PKG_CONFIG_LIBDIR="$(cd "$(dirname "$0")" && pwd)/softfp-target/lib/pkgconfig"
+unset PKG_CONFIG_PATH PKG_CONFIG_SYSROOT_DIR
+exec pkg-config --static --define-prefix "$@"
