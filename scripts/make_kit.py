@@ -67,6 +67,16 @@ def main():
         copy(include, kit / "port" / include.name)
     for launcher in (ROOT / "kit").iterdir():
         copy(launcher, kit / launcher.name)
+    # The stb_dxt texture encoder for each player system, cross-compiled from deps/bc3/encode.c, e.g. with
+    #   zig cc -O2 -shared -target x86_64-windows-gnu deps/bc3/encode.c -o bc3-encoder-windows-x86_64.dll
+    # (also x86_64-linux-gnu .so, x86_64-macos and aarch64-macos .dylib). Without them players compile it or use Pillow.
+    encoders = Path(os.environ.get("HLD_BC3_PREBUILT", ROOT / "build" / "bc3-prebuilt"))
+    for name in ("bc3-encoder-windows-x86_64.dll", "bc3-encoder-linux-x86_64.so",
+                 "bc3-encoder-darwin-x86_64.dylib", "bc3-encoder-darwin-arm64.dylib"):
+        if (encoders / name).is_file():
+            copy(encoders / name, kit / "deps" / "bc3" / "prebuilt" / name)
+        else:
+            print(f"warning: no prebuilt {name}; those players compile the encoder or fall back to Pillow")
     check_no_game_text(kit)
     archive = BUILD / f"{name}.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:

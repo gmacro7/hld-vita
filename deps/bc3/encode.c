@@ -2,6 +2,9 @@
 #include <string.h>
 #define STB_DXT_IMPLEMENTATION
 #include "stb_dxt.h"
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
 void encode(const unsigned char *src, unsigned char *dst, int w, int h) {
     unsigned char block[64];
     for (int y = 0; y < h; y += 4) for (int x = 0; x < w; x += 4) {

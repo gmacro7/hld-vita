@@ -58,11 +58,16 @@ def ensure_tools():
     bootstrap.install_utmt(name)
     encoder = DEPS / ("bc3-encoder.dylib" if sys.platform == "darwin" else
                       "bc3-encoder.dll" if WINDOWS else "bc3-encoder.so")
+    shipped = DEPS / "bc3" / "prebuilt" / f"bc3-encoder-{name}{encoder.suffix}"
+    if not encoder.is_file() and shipped.is_file():
+        shutil.copyfile(shipped, encoder)  # stb_dxt, cross-compiled for this system (scripts/make_kit.py)
     if not encoder.is_file() and not WINDOWS:
         try:
             bootstrap.build_bc3_encoder()
         except (SystemExit, subprocess.CalledProcessError):
-            print("No C compiler found: textures are encoded with Pillow instead (slightly lower quality).")
+            pass
+    if not encoder.is_file():
+        print("No texture encoder for this system: using Pillow's instead (slightly lower quality).")
     return sdk
 
 
