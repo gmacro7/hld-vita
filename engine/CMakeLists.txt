@@ -628,7 +628,7 @@ if(PLATFORM STREQUAL "cli" OR PLATFORM STREQUAL "vita" OR PLATFORM STREQUAL "swi
             ${BACKEND_LIBRARIES}
             ${AUDIO_LIBRARIES}
             ${PLATFORM_LIBRARIES}
-            "${CMAKE_CURRENT_SOURCE_DIR}/../libvitaGL-hldvm.a"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../deps/libvitaGL-hldvm.a"
             stdc++
             SceShaccCgExt
             taihen_stub

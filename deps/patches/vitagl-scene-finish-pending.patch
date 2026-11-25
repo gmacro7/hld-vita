@@ -1,0 +1,46 @@
+--- a/source/framebuffers.c
++++ b/source/framebuffers.c
+@@ -670,12 +670,9 @@
+ 	}
+ 	
+ #ifndef READBACKS_SPEEDHACK
+-	// If the current active framebuffer is the same of the source one for the read, we force a scene reset so that in-flight draws are executed
+-	if (in_use_framebuffer == active_read_fb) {
+-		dirty_framebuffer = GL_TRUE;
+-		scene_reset();
+-		sceGxmFinish(gxm_context);
+-	}
++	// Complete submitted draws and leave the scene closed until the next write.
++	// Pixel queries against the same surface must not start another GPU scene.
++	scene_finish_pending();
+ #endif
+ 
+ 	if (!fast_store) {
+--- a/source/gxm.c
++++ b/source/gxm.c
+@@ -570,6 +570,15 @@
+ 		sceDisplayWaitVblankStartMulti(vsync_interval);
+ }
+ 
++void scene_finish_pending(void) {
++	if (needs_end_scene) {
++		scene_end();
++		needs_end_scene = GL_FALSE;
++		needs_scene_reset = GL_TRUE;
++	}
++	sceGxmFinish(gxm_context);
++}
++
+ void scene_reset(void) {
+ 	if (in_use_framebuffer != active_write_fb || needs_scene_reset || dirty_framebuffer || dirty_query) {
+ 		dirty_framebuffer = GL_FALSE;
+--- a/source/shared.h
++++ b/source/shared.h
+@@ -1202,6 +1202,7 @@
+ void init_depth_stencil_buffer(uint32_t w, uint32_t h, SceGxmDepthStencilSurface *surface, GLboolean has_stencil); // Creates depth and stencil surfaces
+ void init_display_depth_stencil_surfaces(void); // Creates depth and stencil surfaces for the display
+ void start_shader_patcher(void); // Creates a shader patcher instance
++void scene_finish_pending(void);
+ void scene_reset(void); // Resets drawing scene if required
+ GLboolean start_shader_compiler(void); // Starts a shader compiler instance
+ 

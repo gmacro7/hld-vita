@@ -13,6 +13,8 @@ data.win
 /deps/utmt/
 /deps/softfp-target/
 /deps/vitaGL/
+/deps/vitaGL-hldvm/
+/deps/*.a
 /deps/venv/
 /deps/*.o
 /deps/*.dylib
