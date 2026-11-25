@@ -112,6 +112,11 @@ def substitute(argv, sdk):
     for token in argv:
         for key, value in mapping.items():
             token = token.replace(key, value)
+        # GCC matches the profile prefix against the object's path in native form ("C:\\...\\port\\build-out\\vm"):
+        # mixed separators would miss it on Windows and the interpreter's profile would not be found.
+        for flag in ("-fprofile-prefix-path=", "-fprofile-use="):
+            if token.startswith(flag):
+                token = flag + os.path.normpath(token[len(flag):])
         result.append(token)
     return result
 
