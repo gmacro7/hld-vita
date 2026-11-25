@@ -3523,6 +3523,7 @@ package = root / "build" / f"HyperLightDrifter-{TITLE_ID}.vpk"
 def write_package(destination):
     sfo = out / "param.sfo"
     subprocess.run([sdk / "vita-mksfoex", "-s", f"TITLE_ID={TITLE_ID}", "-s", f"APP_VER={version}",
+                    "-s", f"CONTENT_ID=HB0001-{TITLE_ID}_00-0000000000000000",
                     "-d", "ATTRIBUTE2=12", "Hyper Light Drifter", sfo], check=True)
     with ZipFile(destination, "w", ZIP_DEFLATED) as zipped:
         zipped.write(sfo, "sce_sys/param.sfo")
