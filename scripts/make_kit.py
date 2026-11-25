@@ -37,11 +37,11 @@ def check_no_game_text(kit):
     literals = set()
     for name in names:
         text = (ROOT / "work" / "decompiled" / f"{name}.gml").read_text(errors="ignore")
-        literals.update(s for s in re.findall(r'"([^"\\]{12,60})"', text) if " " in s)
+        # Messages and names: at least two words (code fragments such as ":\n    case " also occur in the engine).
+        literals.update(s for s in re.findall(r'"([^"\\]{12,60})"', text) if len(re.findall(r"[A-Za-z]{3,}", s)) >= 2)
     present = [s.encode() for s in literals if any(s.encode() in g for g in generated)]
     kit_files = [p.read_bytes() for p in kit.rglob("*") if p.is_file()]
-    generic = {b" property ", b"Background "}
-    leaked = [s for s in present if s.strip() and s not in generic and any(s in k for k in kit_files)]
+    leaked = [s for s in present if any(s in k for k in kit_files)]
     if leaked:
         raise SystemExit(f"The kit contains text from the game's scripts: {leaked[:5]}")
     print(f"Checked: none of {len(present)} translated script literals are in the kit.")
