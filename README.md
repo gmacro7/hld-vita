@@ -28,6 +28,11 @@ menus working. Later areas have had less testing.
 
 Expect bugs. If you hit one, open an issue with what you did and `ux0:data/hld-vm/runtime.log`.
 
+The figures above come from the maintainer's builds. A build from this repository generates the same C sources;
+21 of 21 generated files were compared and are identical. The one difference: the interpreter (`vm.c`) is built
+without the GCC profile data recorded on hardware, because GCC ties that data to the folder it was recorded in. How
+much speed that costs has not been measured yet.
+
 ## Getting the right game files
 
 The port needs the **August 2016 build** of the game, the last one shipped with GameMaker bytecode. Later builds,
