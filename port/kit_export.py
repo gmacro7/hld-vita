@@ -106,6 +106,10 @@ def export_kit(kit, recorded, link, build, out, sdk_bin, root, part_objects, ver
                 continue
             template.append(mapped)
             continue
+        if token.startswith("-") and (str(root) in token or str(sdk) in token):
+            # Compile flags the CMake link line carries (-I...): harmless at link time; keep them pointing at the kit.
+            template.append(token.replace(str(sdk), "{SDK}").replace(str(root), "{KIT}"))
+            continue
         if str(root) in token or str(sdk) in token:
             raise SystemExit(f"kit export: unhandled path in link argument {token}")
         template.append(token)
