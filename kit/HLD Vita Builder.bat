@@ -3,6 +3,12 @@ rem HLD Vita Builder (Windows 10/11). Uses Python 3.12+ if installed, otherwise 
 rem (python-build-standalone 3.12.16, checksummed) into deps\python. Then runs scripts\kit_build.py.
 setlocal
 cd /d "%~dp0"
+if not exist "kit.json" (
+  echo This is the launcher template from the source repository, not the builder kit.
+  echo Use the HLD-Vita-Builder zip from the project's Releases page.
+  pause
+  exit /b 1
+)
 set "PY="
 if exist "deps\python\python.exe" set "PY=deps\python\python.exe"
 if not defined PY (

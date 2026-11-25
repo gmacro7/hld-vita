@@ -3,6 +3,11 @@
 # (python-build-standalone 3.12.16, checksummed) into deps/python. Then runs scripts/kit_build.py.
 set -e
 cd "$(dirname "$0")"
+if [ ! -f scripts/kit_build.py ] || [ ! -f kit.json ]; then
+  echo "This is the launcher template from the source repository, not the builder kit."
+  echo "Use the HLD-Vita-Builder zip from the project's Releases page (or make one with: python3 scripts/make_kit.py)."
+  exit 1
+fi
 REL=https://github.com/astral-sh/python-build-standalone/releases/download/20261026
 pick() {
   for candidate in deps/python/bin/python3 python3.13 python3.12 python3; do
