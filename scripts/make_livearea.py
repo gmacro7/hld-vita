@@ -69,10 +69,13 @@ def from_game(splash, out):
     def indexed(image, name):
         image.convert("P", palette=Image.Palette.ADAPTIVE, colors=256).save(out / name, optimize=True)
 
-    indexed(cover(art, (840, 500)), "bg.png")
-    indexed(cover(art, (280, 158)), "startup.png")
-    # The bubble icon: a square around the character, right of centre in the key art.
-    indexed(art.crop((380, 20, 740, 380)).resize((128, 128), Image.Resampling.LANCZOS), "icon0.png")
+    # Crop boxes in the 960x540 key art: the framing the maintainer's original LiveArea images used.
+    def framed(box, size):
+        return art.crop(box).resize(size, Image.Resampling.LANCZOS)
+
+    indexed(framed((54, 1, 959, 539), (840, 500)), "bg.png")          # LiveArea background
+    indexed(framed((356, 150, 657, 320), (280, 158)), "startup.png")  # the start ("gate") button
+    indexed(framed((488, 70, 728, 310), (128, 128)), "icon0.png")     # home-screen bubble icon
     template = OUT / "template.xml"
     (out / "template.xml").write_bytes(template.read_bytes())
     return True
