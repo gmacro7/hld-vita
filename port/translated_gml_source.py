@@ -9,6 +9,7 @@
 """
 
 from pathlib import Path
+import os
 import re
 
 from gml_symbols import DataWin
@@ -16,7 +17,8 @@ from gml_translate import translate
 from runtime_verification_source import replace_once
 
 ROOT = Path(__file__).resolve().parent
-DECOMPILED = ROOT.parent / "work" / "decompiled"  # made by scripts/prepare_game.py from your data.win
+DECOMPILED = Path(os.environ["HLDC_DECOMPILED"]) if os.environ.get("HLDC_DECOMPILED") else \
+    ROOT.parent / "work" / "decompiled"  # made by scripts/prepare_game.py from your data.win
 SIGNATURE = ("RValue VM_executeCode(VMContext* ctx, int32_t codeIndex, Instance* selfInstance, Instance* otherInstance, "
              "int32_t eventObjectIndex, int32_t eventType, int32_t eventSubtype, RValue* args, int32_t argCount) {")
 

@@ -10,7 +10,7 @@ What it does, all in this folder:
  3. decompiles the game scripts the port translates, from your data.win, and repacks its textures for the Vita;
  4. translates those scripts to C and compiles them with the interpreter (about a minute);
  5. links them with the port's precompiled engine (prebuilt/) into build/HyperLightDrifter-HLDV00001.vpk;
- 6. optionally copies everything to your Vita over FTP.
+ 6. optionally copies everything to your Vita, over Wi-Fi (FTP) or a USB cable (VitaShell's USB mode).
 
 The precompiled engine contains no game code; everything made from the game stays on this computer. Do not share the
 VPK or the work/ folder.
@@ -194,14 +194,38 @@ def link(recipe, sdk, objects):
         zipped.write(art / "icon0.png", "sce_sys/icon0.png")
         for name in ("bg.png", "startup.png", "template.xml"):
             zipped.write(art / name, f"sce_sys/livearea/contents/{name}")
+        # Vita button prompts (L/R badges, D-pad left/right), made from your copy by prepare_game.vita_icons
+        for icon in sorted((WORK / "vita-icons").glob("*.png")):
+            zipped.write(icon, f"vita-icons/{icon.name}")
     return package
+
+
+def copy_to_vita(choice):
+    """choice: an IP address (Wi-Fi), 'usb', or None (ask)."""
+    if choice is None and sys.stdin.isatty():
+        print("\nCopy it to your Vita now?\n"
+              "  Wi-Fi: start FTP on the Vita (VitaShell: SELECT) and type the IP address it shows\n"
+              "  USB:   VitaShell > START > USB device: Memory Card, press SELECT, plug in the cable, and type usb\n"
+              "  Later: just press Enter")
+        try:
+            choice = input("IP address, usb, or Enter: ").strip() or None
+        except EOFError:  # no keyboard input (e.g. run with "< nul", which Windows reports as a terminal): copy later
+            print()
+            choice = None
+    if choice and choice.lower() == "usb":
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "install.py"), "--usb"], check=True)
+    elif choice:
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "install.py"), choice], check=True)
+    else:
+        launcher = "Copy to Vita.bat" if WINDOWS else "Copy to Vita.command"
+        print(f"To copy it later, double-click \"{launcher}\" in this folder (Wi-Fi or USB; see README.txt).")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--game", type=Path, help="the folder with the 2016 data.win (found or downloaded otherwise)")
     parser.add_argument("--qr", action="store_true", help="sign in to Steam with a QR code when downloading")
-    parser.add_argument("--vita", help="your Vita's IP address: copy everything to it over FTP when done")
+    parser.add_argument("--vita", help="copy everything to your Vita when done: its IP address (Wi-Fi) or 'usb'")
     options = parser.parse_args()
     if sys.version_info < (3, 12):
         raise SystemExit("Python 3.12 or newer is required (the launchers download one if needed).")
@@ -218,19 +242,13 @@ def main():
     prepare_game.decompile(data)
     step("Repacking the textures for the Vita (10-20 minutes the first time)")
     prepare_game.textures(data)
+    prepare_game.vita_icons(data)
     step("Translating the game scripts to C")
     parts = generate_sources(recipe)
     objects = compile_game_code(recipe, sdk, parts)
     package = link(recipe, sdk, objects)
     print(f"\nDone: {package}")
-    vita = options.vita
-    if vita is None and sys.stdin.isatty():
-        vita = input("Copy it to your Vita now? Start FTP on the Vita (VitaShell: SELECT), then type its IP address, "
-                     "or press Enter to skip: ").strip() or None
-    if vita:
-        subprocess.run([sys.executable, str(ROOT / "scripts" / "install.py"), vita], check=True)
-    else:
-        print("To copy it later: python3 scripts/install.py <vita-ip>  (see README.txt)")
+    copy_to_vita(options.vita)
 
 
 if __name__ == "__main__":

@@ -20,10 +20,15 @@ You need Hyper Light Drifter on Steam. This kit contains no game files.
    and repacks the textures. Later runs reuse all of that.
 
 4. Copy it to your Vita
-   At the end it offers to copy everything to your Vita over Wi-Fi. Start an FTP server on the Vita first
-   (VitaShell: press SELECT), then type the IP address it shows. Then, on the Vita, open VitaShell, go to ux0:data,
-   press X on HyperLightDrifter.vpk to install it, and launch "Hyper Light Drifter".
-   Your saves are never touched.
+   The VPK is small (~7 MB): it is only the app. The game itself (~1.9 GB: data.win, textures, music, rooms) goes to
+   ux0:data/hld-vm on the Vita. At the end the builder offers to copy everything, either way:
+     Wi-Fi: on the Vita open VitaShell and press SELECT to start FTP; type the IP address it shows.
+     USB:   on the Vita open VitaShell, press START, set "USB device" to Memory Card, go back, press SELECT and
+            connect the cable; type usb. (Much faster than Wi-Fi.) When it is done, eject the card on the computer
+            and press O on the Vita.
+   To do it later, double-click "Copy to Vita.bat" (Windows) or "Copy to Vita.command" (macOS) in this folder.
+   Then, on the Vita, open VitaShell, go to ux0:data, press X on HyperLightDrifter.vpk to install it, and launch
+   "Hyper Light Drifter". Your saves are never touched.
 
 The app you build contains code made from your copy of the game: do not share it, or the work/ folder.
 

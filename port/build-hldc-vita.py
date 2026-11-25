@@ -1194,7 +1194,7 @@ def compile_source(name, edit):
             code = with_initial_depth_report(code) if options.initial_scene_depth else with_scissor_mask_report(code)
         elif name == "vita/native_platform.c":
             code = with_present_hitch_profile(code)
-    if options.stream_placement and name == "runner.c":
+    if (options.stream_placement or os.environ.get("HLDC_STEP_SAMPLE_ALL") == "1") and name == "runner.c":
         code = with_step_event_profile(code)
     if HLDC_NATIVE_ONLY and name == "loop.c":
         from native_only_source import with_native_only_loop
@@ -1250,33 +1250,31 @@ def compile_source(name, edit):
             code += PGO_PART_EXPORT
         code += r"""
 #include <math.h>
-// D-pad left/right act as L1/R1 (heal / special) only in gameplay: not while a Menus instance exists or the SCREEN
-// pause menu or inventory (map) is showing.
-volatile int hldDpadShoulders;
+// D-pad left/right act as L1/R1 everywhere (heal / special in play, page switching on the map and inventory), except
+// while the inventory's weapon chooser is open (SCREEN.inventoryLoadoutSlot >= 0): the chooser reads the D-pad
+// itself to move through its grid, so there left/right must stay plain D-pad presses.
+volatile int hldDpadShoulders = 1;
 void hldUpdateDpadShoulders(Runner* runner) {
     { extern void hldVitaButtonIcons(Renderer*); hldVitaButtonIcons(runner->renderer); }
-    static int32_t menusObject = -2, screenObject = -1, pauseVar = -1, inventoryVar = -1;
+    static int32_t screenObject = -2, loadoutSlotVar = -1;
     DataWin* dw = runner->dataWin;
-    if (menusObject == -2) {
-        menusObject = -1;
-        for (uint32_t o = 0; o < dw->objt.count; ++o) {
-            if (strcmp(dw->objt.objects[o].name, "Menus") == 0) menusObject = (int32_t) o;
+    if (screenObject == -2) {
+        screenObject = -1;
+        for (uint32_t o = 0; o < dw->objt.count; ++o)
             if (strcmp(dw->objt.objects[o].name, "SCREEN") == 0) screenObject = (int32_t) o;
-        }
         for (uint32_t v = 0; v < dw->vari.variableCount; ++v) {
             const Variable* variable = &dw->vari.variables[v];
-            if (variable->instanceType != INSTANCE_SELF || variable->varID < 0) continue;
-            if (strcmp(variable->name, "pauseMenuShow") == 0) pauseVar = variable->varID;
-            if (strcmp(variable->name, "inventoryShow") == 0) inventoryVar = variable->varID;
+            if (variable->instanceType == INSTANCE_SELF && variable->varID >= 0 &&
+                strcmp(variable->name, "inventoryLoadoutSlot") == 0) loadoutSlotVar = variable->varID;
         }
     }
-    bool menu = menusObject >= 0 && arrlen(runner->instancesByObject[menusObject]) > 0;
-    if (!menu && screenObject >= 0 && arrlen(runner->instancesByObject[screenObject]) > 0) {
+    bool chooserOpen = false;
+    if (screenObject >= 0 && loadoutSlotVar >= 0 && arrlen(runner->instancesByObject[screenObject]) > 0) {
         Instance* screen = runner->instancesByObject[screenObject][0];
-        if (pauseVar >= 0 && RValue_toReal(Instance_getSelfVar(screen, pauseVar)) > 0) menu = true;
-        if (inventoryVar >= 0 && RValue_toReal(Instance_getSelfVar(screen, inventoryVar)) > 0) menu = true;
+        RValue slot = Instance_getSelfVar(screen, loadoutSlotVar);
+        chooserOpen = slot.type != RVALUE_UNDEFINED && RValue_toReal(slot) >= 0;
     }
-    hldDpadShoulders = !menu;
+    hldDpadShoulders = !chooserOpen;
 }
 void hldFightFixture(Runner* runner) {
     static int state = -1, spawnFrame = -1;
@@ -1803,7 +1801,7 @@ void platformSwapBuffers(void) {
         # reads D-pad left/right only for developer cheats, so nothing else changes.
         code = replace_once(code, "SCE_CTRL_L1, 0, SCE_CTRL_LTRIGGER", "SCE_CTRL_L1, SCE_CTRL_R1, SCE_CTRL_LTRIGGER")
         heal = "rearHealPressed()) buttons |= SCE_CTRL_L1;"
-        code = replace_once(code, heal, heal + " { extern volatile int hldDpadShoulders; if (connected) { "
+        code = replace_once(code, heal, heal + " { extern volatile int hldDpadShoulders; if (connected && hldDpadShoulders) { "
                             "if (buttons & SCE_CTRL_LEFT) buttons |= SCE_CTRL_L1; if (buttons & SCE_CTRL_RIGHT) buttons |= SCE_CTRL_R1; } }")
     if HLDC_TRANSLATE:
         # The capture markers were polled on the card in normal play (sceIoRemove at frames 300/450/720/1080 and every
@@ -2671,7 +2669,7 @@ elif options.deferred_audio:
                 for report in ("hldReportEnvSnapshotPool", "hldReportConvertedReads", "hldReportSceneryScalarWrites")))
         if options.graphics_commands:
             code = with_graphics_command_loop(code, render_tail=options.graphics_render_tail)
-        if options.stream_placement:
+        if options.stream_placement or os.environ.get("HLDC_STEP_SAMPLE_ALL") == "1":
             code = with_step_event_report(code)
         if options.frame_deadlines or measured_runtime:
             code = with_frame_deadlines(code, compare=options.frame_deadlines)

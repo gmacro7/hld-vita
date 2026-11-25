@@ -183,7 +183,9 @@ def export_kit(kit, recorded, link, build, out, sdk_bin, root, part_objects, ver
         text = dep.read_text().replace("\\\n", " ")
         for name in text.split(":", 1)[1].split():
             path = (out / name).resolve() if not os.path.isabs(name) else Path(name).resolve()
-            if path.is_relative_to(root) and path.suffix in (".h", ".inc", ".def"):
+            # The compiler's own headers come with the player's VitaSDK (bootstrap.install_sdk); copying them would
+            # leave a partial deps/vitasdk in the kit that blocks that install.
+            if path.is_relative_to(root) and not path.is_relative_to(sdk) and path.suffix in (".h", ".inc", ".def"):
                 headers.add(path)
     for path in headers:
         destination = kit / path.relative_to(root)

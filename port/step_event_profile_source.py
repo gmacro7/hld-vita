@@ -99,6 +99,13 @@ static void releaseStepEventProfile(Runner* runner) {
 
 
 def with_step_event_profile(code):
+    profile = PROFILE
+    if __import__("os").environ.get("HLDC_STEP_SAMPLE_ALL") == "1":
+        # Profiling builds: sample every third frame for the whole run and report every 90 frames (lined up with the
+        # "Vita timing" rows), so short spikes such as boss barrages are caught wherever they happen.
+        profile = replace_once(profile, "return frame >= 541 && frame <= 720 && frame % 15 == 1;",
+                               "return frame >= 180 && frame % 3 == 1;")
+        profile = replace_once(profile, "(frame != 630 && frame != 720)", "(frame < 270 || frame % 90 != 0)")
     start = code.index("static void Runner_executeResolvedEvent(")
     end = code.index("\nvoid Runner_executeEventFromObject(", start)
     event = code[start:end]
@@ -124,7 +131,7 @@ def with_step_event_profile(code):
     }
 
 ''' + anchor)
-    code = code[:start] + PROFILE + "\n" + event + code[end:]
+    code = code[:start] + profile + "\n" + event + code[end:]
     for phase, subtype in enumerate(("STEP_BEGIN", "STEP_NORMAL", "STEP_END")):
         code = replace_once(code, f"    Runner_executeEventForAll(runner, EVENT_STEP, {subtype});",
                             f"    profileStepDispatch(runner, {subtype}, {phase});")

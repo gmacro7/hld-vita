@@ -122,6 +122,15 @@ def textures(data):
                        check=True)
 
 
+def vita_icons(data):
+    """The Vita button prompt icons (L/R badges, D-pad left/right), cut from your data.win's own prompt sprites."""
+    icons = WORK / "vita-icons"
+    if all((icons / f"{name}.png").is_file() for name in ("L", "R", "dleft", "dright")):
+        return
+    subprocess.run([str(PYTHON), str(ROOT / "port" / "tools" / "make_vita_icons.py"), str(data), str(icons)],
+                   check=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("game", type=Path, nargs="?", help="the folder with the 2016 data.win (found or downloaded "
@@ -140,6 +149,7 @@ def main():
     link_game(folder)
     decompile(data)
     textures(data)
+    vita_icons(data)
     print("Game files prepared. Next: python3 scripts/build.py")
 
 

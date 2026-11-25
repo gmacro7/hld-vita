@@ -65,7 +65,8 @@ def main():
     configure_engine()
     environment = dict(os.environ, PATH=f"{SDK / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}", VITASDK=str(SDK))
     subprocess.run(["ninja", "-C", str(ENGINE_BUILD)], check=True, env=environment)
-    environment.update(HLDC_DIR="build-out", HLDC_TRANSLATE="hot-entries-v5.txt", HLDC_NATIVE_SCRIPTS="1",
+    environment.update(HLDC_DIR="build-out", HLDC_TRANSLATE=os.environ.get("HLDC_TRANSLATE", "hot-entries-v5.txt"),
+                       HLDC_NATIVE_SCRIPTS="1",
                        HLDC_PORTABLE_PROFILE="1",
                        HLDC_VITA_ROWS="0", HLDC_BOOT_PREFETCH="0")
     subprocess.run([str(DEPS / "venv" / "bin" / "python"), "build-hldc-vita.py", *PORT_FLAGS],

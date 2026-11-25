@@ -66,7 +66,8 @@ def main():
         copy(module, kit / "port" / module.name)
     for include in (ROOT / "port").glob("*.inc"):
         copy(include, kit / "port" / include.name)
-    for launcher in ("HLD Vita Builder.bat", "HLD Vita Builder.command", "hld-vita-builder.sh"):
+    for launcher in ("HLD Vita Builder.bat", "HLD Vita Builder.command", "hld-vita-builder.sh", "Copy to Vita.bat",
+                     "Copy to Vita.command"):
         copy(ROOT / launcher, kit / launcher)
     copy(ROOT / "scripts" / "kit_README.txt", kit / "README.txt")
     # The stb_dxt texture encoder for each player system, cross-compiled from deps/bc3/encode.c, e.g. with

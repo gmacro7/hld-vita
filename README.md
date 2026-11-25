@@ -54,14 +54,19 @@ Then:
    4. It builds the app.
 
    Later runs reuse all of that.
-5. At the end it offers to copy everything to your Vita over Wi-Fi:
-   1. On the Vita, start VitaShell's FTP server (press **SELECT**).
-   2. Type the IP address VitaShell shows into the builder.
-   3. On the Vita, open `ux0:data` in VitaShell, press **X** on `HyperLightDrifter.vpk` to install it, and launch
-      **Hyper Light Drifter**.
+5. At the end it offers to copy everything to your Vita. The VPK is small (about 7 MB) because it is only the app;
+   the game data (about 1.9 GB) goes to `ux0:data/hld-vm/`. Either:
+   - **Wi-Fi:** on the Vita, start VitaShell's FTP server (press **SELECT**) and type the IP address it shows.
+   - **USB cable (faster):** in VitaShell press **START**, set **USB device** to **Memory Card**, go back, press
+     **SELECT** and connect the cable, then type `usb`. Eject the card on the computer when it is done.
+
+   To copy later, double-click **`Copy to Vita.bat`** (Windows) or **`Copy to Vita.command`** (macOS).
+6. On the Vita, open `ux0:data` in VitaShell, press **X** on `HyperLightDrifter.vpk` to install it, and launch
+   **Hyper Light Drifter**.
 
 Your saves are never touched. The LiveArea icon and background are made from your own copy's key art
-(`splash.png`), so the downloads ship no game art.
+(`splash.png`), and the Vita button prompts (**L**/**R** for the shoulder buttons, D-pad ←/→) are made from the
+game's own prompt icons, so the downloads ship no game art.
 
 The builder kit holds the port's precompiled engine (no game code) and the tools to finish the build from your
 copy. It uses Python 3.12+ if installed and otherwise downloads its own. Every download it makes is pinned and
@@ -84,7 +89,8 @@ button prompts show PlayStation buttons, and you can rebind actions in the game'
 | D-pad ↑ / ↓ | D-pad ↑ / ↓ | Menus |
 | START / SELECT | Options / Share | Pause / map |
 
-D-pad left and right only act as L1/R1. The game itself uses them for nothing else, apart from developer cheats.
+D-pad left and right act as L1/R1 everywhere except in the inventory's weapon chooser, where they move through the
+weapons like the stick (and switch pages again once it closes).
 
 ## Getting the right game files
 
