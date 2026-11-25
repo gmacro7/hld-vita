@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Step 2: prepare YOUR copy of Hyper Light Drifter for the build and for the Vita.
 
-Usage: python3 scripts/prepare_game.py /path/to/your/HyperLightDrifter/folder
+Usage: python3 scripts/prepare_game.py [--qr] [/path/to/the/2016/game/folder]
+
+Without a folder, it finds the August 2016 build in Steam's usual places, or downloads it from Steam with your account
+(scripts/fetch_game.py: ownership is checked by Steam; your password goes only to Steam).
 
 Everything made here comes from your own game files and stays in work/ (git-ignored, never commit it):
   work/game          -> a link to your game folder (nothing is copied)
@@ -103,11 +106,18 @@ def textures(data):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("game", type=Path, help="your Hyper Light Drifter folder (the one with data.win)")
+    parser.add_argument("game", type=Path, nargs="?", help="the folder with the 2016 data.win (found or downloaded "
+                        "automatically when left out)")
+    parser.add_argument("--qr", action="store_true", help="when downloading, sign in to Steam with a QR code")
     options = parser.parse_args()
     if not (DEPS / "utmt" / "UndertaleModCli").is_file() or not PYTHON.is_file():
         raise SystemExit("Run python3 scripts/bootstrap.py first.")
-    folder = options.game.expanduser()
+    if options.game is None:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from fetch_game import locate
+        folder = locate(options.qr)
+    else:
+        folder = options.game.expanduser()
     data = check_game(folder)
     link_game(folder)
     decompile(data)
