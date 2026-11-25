@@ -13,29 +13,13 @@ HLDC_NATIVE_ONLY = os.environ.get('HLDC_NATIVE_ONLY') == '1'
 # Translated GML: a file listing code entries, or "all".
 HLDC_TRANSLATE = os.environ.get('HLDC_TRANSLATE')
 HLDC_PART_SOURCES = []
+KIT = {}  # what the player kit needs from this build (HLDC_EXPORT_KIT, kit_export.py)
 
 
 def portable_vm_source(generated):
-    """vm.c as the port builds it: native serialization / native-only / translated GML / native scripts / compiled
-    entries applied in the same order as the feedback build."""
-    if HLDC_NATIVE_SERIALIZE:
-        from native_serialize_source import with_native_serialize
-        generated = with_native_serialize(generated)
-    if HLDC_NATIVE_ONLY:
-        from native_only_source import with_native_only_vm
-        generated = with_native_only_vm(generated)
-    if HLDC_TRANSLATE:
-        from translated_gml_source import all_entries, with_translated_gml
-        names = all_entries() if HLDC_TRANSLATE == "all" else \
-            [line.strip() for line in Path(HLDC_TRANSLATE).read_text().splitlines() if line.strip()]
-        generated, parts = with_translated_gml(generated, names, stats=os.environ.get("HLDC_STATS") == "1")
-        HLDC_PART_SOURCES[:] = parts
-    if HLDC_NATIVE_SCRIPTS:
-        from native_scripts_source import with_native_scripts
-        generated = with_native_scripts(generated)
-    if HLDC_ENTRIES:
-        from gml_compiler_source import with_compiled_gml
-        generated = with_compiled_gml(generated, HLDC_ENTRIES)
+    from portable_vm_source import portable_vm_source as generate, PART_SOURCES
+    generated = generate(generated)
+    HLDC_PART_SOURCES[:] = PART_SOURCES
     return generated
 HLDC_PART_OBJECTS = []
 import sys
@@ -1482,7 +1466,8 @@ void hldLogMemoryHeadroom(void) {
             # GCC keys each function's profile to the file names it sees (the source and every header). Training and
             # feedback builds both compile the same generated vm-portable.c from the build directory, with every path
             # inside this checkout written relative to it, so a profile recorded in one checkout matches any other.
-            generated = portable_vm_source(dst.read_text())
+            KIT["vm_base"] = dst.read_text()
+            generated = portable_vm_source(KIT["vm_base"])
             (out / "vm-portable.c").write_text(generated)
             argv[-1] = "vm-portable.c"
             argv = [arg if arg.startswith("-fprofile") else arg.replace(str(root), os.path.relpath(root, out))
@@ -1558,6 +1543,7 @@ void hldLogMemoryHeadroom(void) {
     if portable_feedback:
         argv = [a.replace("-Werror=missing-profile", "-Wno-error=missing-profile")
                  .replace("-Werror=coverage-mismatch", "-Wno-error=coverage-mismatch") for a in argv]
+        KIT["vm_argv"], KIT["vm_object"] = list(argv), str(out / obj.name)
         compiler = subprocess.run(argv, cwd=compile_directory, stderr=subprocess.PIPE, text=True,
                                   env={**os.environ, "LC_ALL": "C"})
         print(compiler.stderr, file=sys.stderr, end="")
@@ -1612,6 +1598,7 @@ void hldLogMemoryHeadroom(void) {
         elif pgo:
             base += [f"-fprofile-use={Path(pgo).resolve()}", "-fprofile-partial-training", f"-fprofile-prefix-path={out}",
                      "-Wno-missing-profile", "-Wno-coverage-mismatch"]
+        KIT["part_argv"] = list(base)
         running = []
         for number, part_source in enumerate(HLDC_PART_SOURCES):
             part = out / f"hldc-part-{number}.c"
@@ -3511,6 +3498,9 @@ if os.environ.get("HLDC_DRAWSTATS") == "1":
     link += ["-Wl,--wrap=sceGxmBeginScene", "-Wl,--wrap=sceGxmDraw"]
 elf = out / "butterscotch"
 link[link.index("-o") + 1] = str(elf)
+if os.environ.get("HLDC_EXPORT_KIT"):
+    from kit_export import export_kit
+    export_kit(Path(os.environ["HLDC_EXPORT_KIT"]), KIT, link, build, out, sdk, root, HLDC_PART_OBJECTS, version)
 subprocess.run(link, cwd=build, check=True)
 subprocess.run([sdk / "vita-elf-create", elf, out / "butterscotch.velf"], check=True)
 subprocess.run([sdk / "vita-make-fself", "-c", out / "butterscotch.velf", out / "eboot.bin"], check=True)
