@@ -19,6 +19,49 @@ import subprocess
 from pathlib import Path
 
 
+def is_lto(path):
+    with open(path, "rb") as stream:
+        return b".gnu.lto_" in stream.read()
+
+
+def prelink_lto(kit, template, sdk):
+    """Finish link-time optimisation here: merge every LTO object and LTO archive of the engine into one machine-code
+    relocatable object (prebuilt/engine-prelinked.o). GCC's LTO format is only readable by the exact compiler build
+    that wrote it (the Windows VitaSDK's lto1 crashes on it), so the player's link must not run LTO at all."""
+    prebuilt = kit / "prebuilt"
+    resolve = lambda token: Path(token.replace("{KIT}", str(kit)))
+    lto_objects, lto_archives, first = [], [], None
+    for index, token in enumerate(template):
+        if token.startswith("{KIT}/prebuilt/") and resolve(token).is_file() and is_lto(resolve(token)):
+            (lto_archives if token.endswith(".a") else lto_objects).append(token)
+            first = index if first is None else first
+    if not lto_objects:
+        return
+    output = prebuilt / "engine-prelinked.o"
+    gcc = template[0].replace("{SDK}", str(sdk))
+    command = [gcc, "-r", "-flinker-output=nolto-rel", "-nostdlib", "-O3", "-mtune=cortex-a9", "-flto=auto",
+               *[str(resolve(t)) for t in lto_objects],
+               "-Wl,--whole-archive", *[str(resolve(t)) for t in dict.fromkeys(lto_archives)], "-Wl,--no-whole-archive",
+               "-o", str(output)]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0 or is_lto(output):
+        raise SystemExit("kit export: LTO prelink failed\n" + result.stderr[-4000:])
+    removed = set(lto_objects) | set(lto_archives)
+    rebuilt = []
+    for index, token in enumerate(template):
+        if index == first:
+            rebuilt.append("{KIT}/prebuilt/engine-prelinked.o")
+        if token in removed or token in ("-flto=auto", "-fno-fat-lto-objects") or token.startswith("-flto"):
+            continue
+        rebuilt.append(token)
+    rebuilt.insert(1, "-fno-lto")
+    template[:] = rebuilt
+    for token in removed:
+        resolve(token).unlink(missing_ok=True)
+    print(f"kit export: {len(lto_objects)} LTO objects and {len(set(lto_archives))} LTO archives prelinked into "
+          f"engine-prelinked.o ({output.stat().st_size / 1e6:.1f} MB)", flush=True)
+
+
 def export_kit(kit, recorded, link, build, out, sdk_bin, root, part_objects, version):
     kit = kit.resolve()
     if kit.exists():
@@ -115,6 +158,8 @@ def export_kit(kit, recorded, link, build, out, sdk_bin, root, part_objects, ver
         template.append(token)
     if not inserted:
         raise SystemExit("kit export: the link has no game-derived objects")
+
+    prelink_lto(kit, template, sdk)
 
     def relative_command(argv):
         result = []
