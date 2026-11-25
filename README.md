@@ -36,16 +36,26 @@ much speed that costs has not been measured yet.
 ## Getting the right game files
 
 The port needs the **August 2016 build** of the game, the last one shipped with GameMaker bytecode. Later builds,
-including the current Steam and GOG releases, compile the game to native code and cannot run on this port.
+including the current Steam and GOG releases, compile the game to native code and cannot run on this port. Steam still
+serves the 2016 build to everyone who owns the game, so **you need Hyper Light Drifter on Steam**.
 
-If you own the game on Steam:
+You don't have to fetch it yourself: `scripts/prepare_game.py` does it.
 
-1. Open the Steam console: run `steam://open/console` in a browser or the Run dialog.
+1. It looks in Steam's usual folders, in case you already have it.
+2. If not, it downloads it (about 1 GB) into `work/depot/` with
+   [DepotDownloader](https://github.com/SteamRE/DepotDownloader). This is the standard open-source Steam depot tool;
+   the version is pinned and checksummed.
+3. You sign in with **your own Steam account**. Steam checks that the account owns the game.
+4. DepotDownloader asks for your password and Steam Guard code directly. The scripts never see or store them. Add
+   `--qr` to sign in by scanning a QR code with the Steam mobile app instead.
+
+If you would rather use Steam itself:
+
+1. Open the Steam console (`steam://open/console` in a browser or the Run dialog).
 2. Enter `download_depot 257850 257851 2557763276340557312`.
-3. Steam saves it under `steamapps/content/app_257850/depot_257851/` and prints the full path when it is done.
+3. Run `prepare_game.py` with no arguments; it finds the download.
 
-`scripts/prepare_game.py` checks that your `data.win` is exactly this build (612,369,518 bytes, SHA-256
-`8dcc8b53…f69`) and refuses anything else.
+Either way, the file is checked to be exactly this build (612,369,518 bytes, SHA-256 `8dcc8b53…f69`) before use.
 
 ## Building
 
@@ -55,7 +65,7 @@ You need macOS (Apple silicon or Intel) or Linux x86-64, with Python 3.12+, `git
 ```sh
 git clone <this repository> hld-vita && cd hld-vita
 python3 scripts/bootstrap.py                         # 1. tools, about 400 MB of pinned downloads into deps/
-python3 scripts/prepare_game.py /path/to/depot_257851 # 2. decompile + repack textures from your copy (~20 min)
+python3 scripts/prepare_game.py                     # 2. find/download the 2016 build, decompile, repack (~20 min)
 python3 scripts/build.py                             # 3. build/HyperLightDrifter-HLDV00001.vpk
 python3 scripts/install.py 192.168.1.50              # 4. copy to the Vita (your Vita's IP; FTP must be running)
 ```
@@ -68,7 +78,7 @@ What each step does:
    layer and vitaGL. Each is pinned and checked against `deps/dependencies.json`. It rebuilds vitaGL for the softfp
    stubs, builds a small BC3 texture encoder and makes a Python environment in `deps/venv`. It installs nothing
    globally.
-2. **`prepare_game.py`** links your game folder as `work/game`. It decompiles the 428 scripts the port translates
+2. **`prepare_game.py`** finds or downloads the 2016 build (see above) and links it as `work/game`. It decompiles the 428 scripts the port translates
    (`port/hot-entries-v5.txt`) into `work/decompiled/`, using a temporary copy of `data.win` so your file is never
    changed. It repacks the texture pages into `work/vita/textures.bin` and the multi-core strips in
    `work/vita/pagez/`.
