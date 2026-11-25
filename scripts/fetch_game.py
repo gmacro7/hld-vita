@@ -65,7 +65,7 @@ def depotdownloader():
     import bootstrap
     name = bootstrap.host()
     target = ROOT / "deps" / "depotdownloader"
-    program = target / "DepotDownloader"
+    program = bootstrap.exe(target / "DepotDownloader")
     if program.is_file():
         return program
     record = next(t for t in MANIFEST["tools"] if t["host"] == name and t["kind"] == "depotdownloader")
@@ -73,7 +73,8 @@ def depotdownloader():
     target.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive) as z:
         z.extractall(target)
-    program.chmod(0o755)
+    if not bootstrap.WINDOWS:
+        program.chmod(0o755)
     return program
 
 

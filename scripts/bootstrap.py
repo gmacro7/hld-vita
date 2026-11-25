@@ -30,13 +30,27 @@ CACHE = DEPS / "downloads"
 MANIFEST = json.loads((DEPS / "dependencies.json").read_text())
 
 
+WINDOWS = sys.platform == "win32"
+
+
 def host():
     machine = platform.machine().lower()
-    machine = {"amd64": "x86_64", "aarch64": "arm64"}.get(machine, machine)
-    name = f"{sys.platform.replace('linux', 'linux').replace('darwin', 'darwin')}-{machine}"
+    machine = {"amd64": "x86_64", "x64": "x86_64", "aarch64": "arm64"}.get(machine, machine)
+    system = {"win32": "windows", "darwin": "darwin"}.get(sys.platform, "linux" if sys.platform.startswith("linux") else sys.platform)
+    name = f"{system}-{machine}"
     if name not in {t["host"] for t in MANIFEST["tools"]}:
-        raise SystemExit(f"Unsupported build host {name}: use macOS (Apple silicon or Intel) or Linux x86-64.")
+        raise SystemExit(f"Unsupported computer ({name}): use Windows x64, macOS (Apple silicon or Intel) or Linux x64.")
     return name
+
+
+def exe(path):
+    """A program path with Windows' .exe suffix where needed."""
+    path = Path(path)
+    return path.with_name(path.name + ".exe") if WINDOWS and not path.suffix else path
+
+
+def venv_python(venv):
+    return venv / ("Scripts/python.exe" if WINDOWS else "bin/python")
 
 
 def sha256(path):
@@ -66,7 +80,7 @@ def tool(kind, name):
 
 def install_sdk(name):
     target = DEPS / "vitasdk"
-    if (target / "bin" / "arm-vita-eabi-gcc").is_file():
+    if exe(target / "bin" / "arm-vita-eabi-gcc").is_file():
         return target
     archive = tool("sdk", name)
     staging = DEPS / "vitasdk.extract"
@@ -74,7 +88,7 @@ def install_sdk(name):
     staging.mkdir(parents=True)
     with tarfile.open(archive) as tar:
         tar.extractall(staging, filter="data")
-    inner = next(p for p in [staging / "vitasdk", staging] if (p / "bin" / "arm-vita-eabi-gcc").is_file())
+    inner = next(p for p in [staging / "vitasdk", staging] if exe(p / "bin" / "arm-vita-eabi-gcc").is_file())
     inner.rename(target)
     shutil.rmtree(staging, ignore_errors=True)
     return target
@@ -82,7 +96,7 @@ def install_sdk(name):
 
 def install_utmt(name):
     target = DEPS / "utmt"
-    if (target / "UndertaleModCli").is_file():
+    if exe(target / "UndertaleModCli").is_file():
         return target
     archive = tool("utmt", name)
     target.mkdir(parents=True)
@@ -95,7 +109,8 @@ def install_utmt(name):
             mode = (item.external_attr >> 16) & 0o777
             if mode and not item.is_dir():
                 (target / item.filename).chmod(mode)
-    (target / "UndertaleModCli").chmod(0o755)
+    if not WINDOWS:
+        (target / "UndertaleModCli").chmod(0o755)
     return target
 
 
@@ -211,7 +226,8 @@ def build_entropy_shim(sdk):
 
 def build_bc3_encoder():
     """stb_dxt (public domain) behind a one-function wrapper, loaded by port/tools/build_texture_bundle.py."""
-    target = DEPS / ("bc3-encoder.dylib" if sys.platform == "darwin" else "bc3-encoder.so")
+    target = DEPS / ("bc3-encoder.dylib" if sys.platform == "darwin" else
+                     "bc3-encoder.dll" if WINDOWS else "bc3-encoder.so")
     if target.is_file():
         return
     compiler = shutil.which("cc") or shutil.which("clang") or shutil.which("gcc")
@@ -223,7 +239,7 @@ def build_bc3_encoder():
 
 def install_venv():
     venv = DEPS / "venv"
-    python = venv / "bin" / "python"
+    python = venv_python(venv)
     if not python.is_file():
         subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
     subprocess.run([str(python), "-m", "pip", "install", "--quiet", "-r", str(ROOT / "scripts" / "requirements.txt")],

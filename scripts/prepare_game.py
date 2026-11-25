@@ -27,7 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEPS = ROOT / "deps"
 WORK = ROOT / "work"
-PYTHON = DEPS / "venv" / "bin" / "python"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bootstrap import exe, venv_python, WINDOWS  # noqa: E402
+PYTHON = venv_python(DEPS / "venv")
 # The August 2016 build (Steam depot 257851, manifest 2557763276340557312): the last one shipped with GameMaker
 # bytecode. Later builds compile the game to native code and cannot be used.
 EXPECTED_SHA256 = "8dcc8b53bd0da874410c919accf514221bf63055b95e3a3293f1e391c373af69"
@@ -56,7 +58,12 @@ def link_game(folder):
         if link.resolve() == folder.resolve():
             return
         link.unlink()
-    link.symlink_to(folder.resolve(), target_is_directory=True)
+    if WINDOWS:
+        # A directory junction needs no administrator rights, unlike a symbolic link.
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(folder.resolve())], check=True,
+                       stdout=subprocess.DEVNULL)
+    else:
+        link.symlink_to(folder.resolve(), target_is_directory=True)
 
 
 def decompile(data):
@@ -79,7 +86,7 @@ def decompile(data):
         environment = dict(os.environ, HLD_DECOMPILE_LIST=str(ROOT / "port" / "hot-entries-v5.txt"),
                            HLD_DECOMPILE_OUT=str(out), DOTNET_CLI_TELEMETRY_OPTOUT="1")
         print(f"Decompiling {len(names)} scripts (a few minutes)...", flush=True)
-        result = subprocess.run([str(DEPS / "utmt" / "UndertaleModCli"), "load", str(copy), "-s",
+        result = subprocess.run([str(exe(DEPS / "utmt" / "UndertaleModCli")), "load", str(copy), "-s",
                                  str(ROOT / "port" / "tools" / "decompile_list.csx")],
                                 env=environment, capture_output=True, text=True)
         (WORK / "decompile.log").write_text(result.stdout + result.stderr)
@@ -110,7 +117,7 @@ def main():
                         "automatically when left out)")
     parser.add_argument("--qr", action="store_true", help="when downloading, sign in to Steam with a QR code")
     options = parser.parse_args()
-    if not (DEPS / "utmt" / "UndertaleModCli").is_file() or not PYTHON.is_file():
+    if not exe(DEPS / "utmt" / "UndertaleModCli").is_file() or not PYTHON.is_file():
         raise SystemExit("Run python3 scripts/bootstrap.py first.")
     if options.game is None:
         sys.path.insert(0, str(ROOT / "scripts"))

@@ -1,0 +1,32 @@
+HLD Vita Builder
+================
+
+Makes the unofficial PS Vita port of Hyper Light Drifter from your own copy of the game.
+You need Hyper Light Drifter on Steam. This kit contains no game files.
+
+1. Start it
+   Windows:  double-click "HLD Vita Builder.bat"
+   macOS:    double-click "HLD Vita Builder.command"
+             (first time: right-click > Open, because it is not from the App Store)
+   Linux:    run ./hld-vita-builder.sh in a terminal
+
+2. Sign in to Steam if asked
+   If the August 2016 build of the game is not already on this computer, the builder downloads it from Steam
+   (about 1 GB). Type your Steam username; the Steam download tool then asks for your password and Steam Guard code
+   itself. The builder never sees or stores them. Steam only allows the download if your account owns the game.
+   To sign in with the Steam mobile app instead, start the builder with --qr.
+
+3. Wait
+   The first run takes 20-40 minutes. It downloads its tools (~250 MB), decompiles and translates the game scripts,
+   and repacks the textures. Later runs reuse all of that.
+
+4. Copy it to your Vita
+   At the end it offers to copy everything to your Vita over Wi-Fi. Start an FTP server on the Vita first
+   (VitaShell: press SELECT), then type the IP address it shows. Then, on the Vita, open VitaShell, go to ux0:data,
+   press X on HyperLightDrifter.vpk to install it, and launch "Hyper Light Drifter".
+   Your saves are never touched.
+
+The app you build contains code made from your copy of the game: do not share it, or the work/ folder.
+
+Source code, issues and full documentation: see the project's GitHub page. Licence: AGPL-3.0 (LICENSE);
+third-party notices in NOTICE.md.

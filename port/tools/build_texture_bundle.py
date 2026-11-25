@@ -13,7 +13,20 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
-ENCODER = ROOT / "deps" / ("bc3-encoder.dylib" if sys.platform == "darwin" else "bc3-encoder.so")  # scripts/bootstrap.py
+ENCODER = ROOT / "deps" / ("bc3-encoder.dylib" if sys.platform == "darwin" else
+                          "bc3-encoder.dll" if sys.platform == "win32" else "bc3-encoder.so")  # scripts/bootstrap.py
+
+
+def encode_bc3_pillow(image, size):
+    """BC3 (DXT5) blocks from Pillow's DDS writer, for computers without the stb_dxt encoder library."""
+    stream = io.BytesIO()
+    image.save(stream, "DDS", pixel_format="DXT5")
+    data = stream.getvalue()
+    header = 4 + 124 + (20 if data[84:88] == b"DX10" else 0)
+    blocks = data[header:header + size]
+    if len(blocks) != size:
+        raise RuntimeError("unexpected DDS output from Pillow")
+    return blocks
 
 
 def decode_bc3(payload, width, height):
@@ -48,9 +61,11 @@ def extract_atlas(data):
 
 def main():
     source, output = map(Path, sys.argv[1:])
-    encoder = ctypes.CDLL(str(ENCODER))
-    encoder.encode.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
-    encoder.encode.restype = None
+    encoder = None
+    if ENCODER.is_file():
+        encoder = ctypes.CDLL(str(ENCODER))
+        encoder.encode.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+        encoder.encode.restype = None
     staged = output.with_suffix(".part")
     png_pages = 0
     with source.open("rb") as wad, mmap.mmap(wad.fileno(), 0, access=mmap.ACCESS_READ) as data:
@@ -61,9 +76,13 @@ def main():
                 image = Image.open(io.BytesIO(png)).convert("RGBA")
                 width, height = image.size
                 size = ((width + 3) // 4) * ((height + 3) // 4) * 16
-                bc3 = ctypes.create_string_buffer(size)
-                encoder.encode(image.tobytes(), bc3, width, height)
-                decoded = np.asarray(decode_bc3(bc3.raw, width, height), dtype=np.int16)
+                if encoder is not None:
+                    bc3 = ctypes.create_string_buffer(size)
+                    encoder.encode(image.tobytes(), bc3, width, height)
+                    bc3_raw = bc3.raw
+                else:
+                    bc3_raw = encode_bc3_pillow(image, size)
+                decoded = np.asarray(decode_bc3(bc3_raw, width, height), dtype=np.int16)
                 original = np.asarray(image, dtype=np.int16)
                 delta = np.abs(decoded - original)
                 alpha = original[:, :, 3]
@@ -75,7 +94,7 @@ def main():
                     payload = png
                 else:
                     pvr = PVR_HEADER.pack(PVR_V3, 0, 11, 0, 0, height, width, 1, 1, 1, 1, 0)
-                    payload = pvr + bc3.raw
+                    payload = pvr + bc3_raw
                 stream.write(struct.pack("<I", len(payload)))
                 stream.write(payload)
                 if (page + 1) % 25 == 0:
