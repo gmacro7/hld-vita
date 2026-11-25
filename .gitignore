@@ -1,0 +1,23 @@
+# Made from YOUR copy of the game: never commit or share these.
+/work/
+/build/
+/port/build-out/
+*.vpk
+data.win
+*.sav
+
+# Downloaded and built tools (scripts/bootstrap.py)
+/deps/downloads/
+/deps/vitasdk/
+/deps/vitasdk.extract/
+/deps/utmt/
+/deps/softfp-target/
+/deps/vitaGL/
+/deps/venv/
+/deps/*.o
+/deps/*.dylib
+/deps/*.so
+
+__pycache__/
+*.pyc
+.DS_Store

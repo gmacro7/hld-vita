@@ -1,0 +1,55 @@
+{
+  "tools": [
+    {
+      "host": "darwin-arm64",
+      "kind": "sdk",
+      "url": "https://github.com/vitasdk/autobuilds/releases/download/sdk-vita_softfp-snapshot-20260828.667.1/vitasdk-arm64-apple-darwin-2026-08-28_12-38-48.tar.bz2",
+      "sha256": "398ca499fc7ea1456e1f44fd75b4516488289e1634e7d4171e87ce5f4fc5f611",
+      "file": "vitasdk-arm64-apple-darwin-2026-08-28_12-38-48.tar.bz2"
+    },
+    {
+      "host": "darwin-arm64",
+      "kind": "utmt",
+      "url": "https://github.com/UnderminersTeam/UndertaleModTool/releases/download/0.9.2.0/UTMT_CLI_v0.9.2.0-macOS.zip",
+      "sha256": "03042fa77f93e9b7fcb06592b77fb8369876e6d6fff7680a63dc0fa2df5444ef",
+      "file": "UTMT_CLI_v0.9.2.0-macOS.zip"
+    },
+    {
+      "host": "darwin-x86_64",
+      "kind": "sdk",
+      "url": "https://github.com/vitasdk/autobuilds/releases/download/sdk-vita_softfp-snapshot-20260828.667.1/vitasdk-x86_64-apple-darwin-2026-08-28_12-51-34.tar.bz2",
+      "sha256": "1c6647bb6f3bd03a5b1d73648e57590263e7952cb9518b29fe4cac13af4c4e31",
+      "file": "vitasdk-x86_64-apple-darwin-2026-08-28_12-51-34.tar.bz2"
+    },
+    {
+      "host": "darwin-x86_64",
+      "kind": "utmt",
+      "url": "https://github.com/UnderminersTeam/UndertaleModTool/releases/download/0.9.2.0/UTMT_CLI_v0.9.2.0-macOS-x86.zip",
+      "sha256": "8c210151736d828a6fa47bcf86e1365c20d1f2d587a0341274490e6026c09ee6",
+      "file": "UTMT_CLI_v0.9.2.0-macOS-x86.zip"
+    },
+    {
+      "host": "linux-x86_64",
+      "kind": "sdk",
+      "url": "https://github.com/vitasdk/autobuilds/releases/download/sdk-vita_softfp-snapshot-20260828.667.1/vitasdk-x86_64-linux-gnu-2026-08-28_12-40-24.tar.bz2",
+      "sha256": "f389dbafa78424b1c96bd2cbed00d1fcc8c60181a249c1a45949e6452d72bf1a",
+      "file": "vitasdk.tar.bz2"
+    },
+    {
+      "host": "linux-x86_64",
+      "kind": "utmt",
+      "url": "https://github.com/UnderminersTeam/UndertaleModTool/releases/download/0.9.2.0/UTMT_CLI_v0.9.2.0-Ubuntu.zip",
+      "sha256": "d182f00c0e5ced8d9252aa1f796374cfee077a3889a658e70b68685f9cd559c7",
+      "file": "UTMT_CLI_v0.9.2.0-Ubuntu.zip"
+    }
+  ],
+  "softfp_layer": {
+    "repository": "atamanenko/vitasdk-softfp",
+    "digest": "sha256:3173412101070e0a8f5b903a87617898488cfa116b5740e5d6ef4fdfa0f51185",
+    "size": 196732135
+  },
+  "vitaGL": {
+    "url": "https://github.com/Rinnegatamante/vitaGL.git",
+    "commit": "cd3791e29ff7f1c0ab349f12c7231f4871ce6a75"
+  }
+}
