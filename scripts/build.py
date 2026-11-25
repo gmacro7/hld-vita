@@ -24,9 +24,11 @@ ENGINE_BUILD = ROOT / "build" / "engine-vita-sprite-cache"
 # The released configuration. Each flag enables a group of the port's engine changes; see docs/BUILDING.md.
 PORT_FLAGS = ["--runtime-refinements", "--consolidated-runtime", "--integrated-optimizations", "--verified-runtime",
               "--persistent-terrain-bounds", "--stream-slot-obstacles",
-              "--vm-feedback", "vm-feedback-profiles/20261121-162657/merged-3"]
-# --vm-feedback selects the instance-slot VM build; HLDC_NO_COMPILER_FEEDBACK (below) compiles it without the GCC
-# profile data recorded on hardware, which GCC ties to the absolute path it was recorded at.
+              "--vm-feedback", "vm-profile"]
+# port/vm-profile/vm.gcda: GCC profile of the interpreter (vm.c), recorded on a PS Vita over four routes (East Lab
+# walk and fight, Central, the combat tutorial) with a --vm-training build. HLDC_PORTABLE_PROFILE makes recording and
+# use compile the same source with relative paths, so the profile applies in any checkout. To re-record, see
+# docs/BUILDING.md.
 
 
 def configure_engine():
@@ -66,7 +68,7 @@ def main():
     environment = dict(os.environ, PATH=f"{SDK / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}", VITASDK=str(SDK))
     subprocess.run(["ninja", "-C", str(ENGINE_BUILD)], check=True, env=environment)
     environment.update(HLDC_DIR="build-out", HLDC_TRANSLATE="hot-entries-v5.txt", HLDC_NATIVE_SCRIPTS="1",
-                       HLDC_NO_COMPILER_FEEDBACK="1",
+                       HLDC_PORTABLE_PROFILE="1",
                        HLDC_VITA_ROWS="0", HLDC_BOOT_PREFETCH="0")
     subprocess.run([str(DEPS / "venv" / "bin" / "python"), "build-hldc-vita.py", *PORT_FLAGS],
                    cwd=ROOT / "port", check=True, env=environment)
