@@ -66,8 +66,9 @@ def main():
         copy(module, kit / "port" / module.name)
     for include in (ROOT / "port").glob("*.inc"):
         copy(include, kit / "port" / include.name)
-    for launcher in (ROOT / "kit").iterdir():
-        copy(launcher, kit / launcher.name)
+    for launcher in ("HLD Vita Builder.bat", "HLD Vita Builder.command", "hld-vita-builder.sh"):
+        copy(ROOT / launcher, kit / launcher)
+    copy(ROOT / "scripts" / "kit_README.txt", kit / "README.txt")
     # The stb_dxt texture encoder for each player system, cross-compiled from deps/bc3/encode.c, e.g. with
     #   zig cc -O2 -shared -target x86_64-windows-gnu deps/bc3/encode.c -o bc3-encoder-windows-x86_64.dll
     # (also x86_64-macos and aarch64-macos .dylib). Without them players compile it or use Pillow.

@@ -1,6 +1,6 @@
 """The interpreter source as the port builds it: native serialization / native-only / translated GML / native
 scripts / compiled entries applied to the transformed vm.c, in the same order as the feedback build. Shared by
-build-hldc-vita.py and the player kit (kit/build_vpk.py), so both compile the identical vm-portable.c."""
+build-hldc-vita.py and the player kit (scripts/kit_build.py), so both compile the identical vm-portable.c."""
 import json
 import os
 from pathlib import Path
