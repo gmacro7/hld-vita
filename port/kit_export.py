@@ -55,6 +55,13 @@ def prelink_lto(kit, template, sdk):
             continue
         rebuilt.append(token)
     rebuilt.insert(1, "-fno-lto")
+    # Plain objects that came after the libraries (the graphics bridge, the entropy shim) go right after the engine:
+    # their references resolve from the libraries that follow (single pass; LTO used to rescan the archives).
+    plain = [t for t in rebuilt if t.startswith("{KIT}/prebuilt/") and t.endswith(".o")
+             and t != "{KIT}/prebuilt/engine-prelinked.o"]
+    rebuilt = [t for t in rebuilt if t not in plain]
+    at = rebuilt.index("{KIT}/prebuilt/engine-prelinked.o") + 1
+    rebuilt[at:at] = plain
     template[:] = rebuilt
     for token in removed:
         resolve(token).unlink(missing_ok=True)
