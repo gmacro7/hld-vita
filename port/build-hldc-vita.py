@@ -1514,7 +1514,13 @@ void hldLogMemoryHeadroom(void) {
         else:
             argv += [f"-fprofile-use={profile_input}", "-fprofile-partial-training",
                      "-Wno-error=missing-profile", "-Wno-error=coverage-mismatch"]
-    if name == "vm.c" and options.vm_feedback:
+    no_compiler_feedback = os.environ.get("HLDC_NO_COMPILER_FEEDBACK") == "1" and vm_profile_unit
+    if no_compiler_feedback:
+        # Same VM source, built without the recorded GCC profile: GCC keys that profile to the absolute path it was
+        # recorded at, so a checkout elsewhere cannot use it (scripts/build.py sets this).
+        argv = [a for a in argv if not a.startswith(("-fprofile-use", "-fprofile-partial-training"))
+                and "missing-profile" not in a and "coverage-mismatch" not in a]
+    if name == "vm.c" and options.vm_feedback and not no_compiler_feedback:
         # The SDK discards mismatched counters and estimates those functions.
         # Require valid feedback everywhere except the observed GCC 15.2
         # graph differences in this exact VM source.
