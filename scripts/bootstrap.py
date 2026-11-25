@@ -5,6 +5,8 @@
   - UndertaleModTool CLI 0.9.2.0 (to decompile your copy)  -> deps/utmt
   - the VitaSDK softfp library layer (vitasdk-softfp image) -> deps/softfp-target
   - vitaGL at a pinned commit, rebuilt for softfp stubs     -> deps/softfp-target/lib/libvitaGL.a
+  - the same with the port's patch                        -> deps/libvitaGL-hldvm.a
+  - vitaShaRK, libogg, libvorbis at pinned commits         -> deps/softfp-target
   - the newlib entropy shim                                  -> deps/vita-newlib-entropy.o
   - a Python virtual environment with numpy and Pillow      -> deps/venv
 
@@ -153,6 +155,50 @@ def install_vitagl(sdk):
     marker.write_text(commit + "\n")
 
 
+def checkout(name):
+    record = MANIFEST["sources"][name]
+    source = DEPS / "src" / name
+    if not (source / ".git").is_dir():
+        source.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "clone", "--quiet", record["url"], str(source)], check=True)
+    subprocess.run(["git", "-C", str(source), "checkout", "--quiet", record["commit"]], check=True)
+    return source
+
+
+def install_extra_libraries(sdk):
+    """Libraries newer than (or missing from) the softfp layer, at pinned commits, installed into deps/softfp-target:
+    vitaGL's own header (the engine uses API newer than the layer's copy), vitaShaRK (vitaGL's runtime shader
+    compiler) and libogg / libvorbis."""
+    target = DEPS / "softfp-target"
+    shutil.copyfile(DEPS / "vitaGL" / "source" / "vitaGL.h", target / "include" / "vitaGL.h")
+    marker = target / "lib" / ".extra-libraries"
+    pins = json.dumps(MANIFEST["sources"], sort_keys=True)
+    if marker.is_file() and marker.read_text() == pins:
+        return
+    gcc, ar = sdk / "bin" / "arm-vita-eabi-gcc", sdk / "bin" / "arm-vita-eabi-gcc-ar"
+    shark = checkout("vitaShaRK")
+    subprocess.run([str(gcc), "-std=gnu11", f"-I{target / 'include'}", "-g", "-Wl,-q", "-O2", "-ffast-math",
+                    "-mtune=cortex-a9", "-mfpu=neon", "-ftree-vectorize", "-c", "-o", "source/vitashark.o",
+                    "source/vitashark.c"], cwd=shark, check=True)
+    (target / "lib" / "libvitashark.a").unlink(missing_ok=True)
+    subprocess.run([str(ar), "-rc", str(target / "lib" / "libvitashark.a"), "source/vitashark.o"], cwd=shark, check=True)
+    shutil.copyfile(shark / "source" / "vitashark.h", target / "include" / "vitashark.h")
+    toolchain = sdk / "share" / "vita.toolchain.cmake"
+    environment = dict(os.environ, VITASDK=str(sdk), PATH=f"{sdk / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}")
+    for name, extra in (("ogg", []), ("vorbis", [f"-DOGG_INCLUDE_DIR={target / 'include'}",
+                                                 f"-DOGG_LIBRARY={target / 'lib' / 'libogg.a'}"])):
+        source = checkout(name)
+        build = DEPS / "src" / f"{name}-build"
+        shutil.rmtree(build, ignore_errors=True)
+        subprocess.run(["cmake", "-S", str(source), "-B", str(build), f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
+                        f"-DCMAKE_INSTALL_PREFIX={target}", "-DCMAKE_C_FLAGS=-mfloat-abi=softfp",
+                        "-DBUILD_SHARED_LIBS=OFF", "-DBUILD_TESTING=OFF", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+                        *extra], check=True, env=environment)
+        subprocess.run(["cmake", "--build", str(build)], check=True, env=environment)
+        subprocess.run(["cmake", "--install", str(build)], check=True, env=environment)
+    marker.write_text(pins)
+
+
 def build_entropy_shim(sdk):
     target = DEPS / "vita-newlib-entropy.o"
     if target.is_file():
@@ -193,6 +239,7 @@ def main():
     install_utmt(name)
     install_softfp_layer()
     install_vitagl(sdk)
+    install_extra_libraries(sdk)
     build_entropy_shim(sdk)
     build_bc3_encoder()
     install_venv()
