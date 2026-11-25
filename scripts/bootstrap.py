@@ -39,7 +39,7 @@ def host():
     system = {"win32": "windows", "darwin": "darwin"}.get(sys.platform, "linux" if sys.platform.startswith("linux") else sys.platform)
     name = f"{system}-{machine}"
     if name not in {t["host"] for t in MANIFEST["tools"]}:
-        raise SystemExit(f"Unsupported computer ({name}): use Windows x64, macOS (Apple silicon or Intel) or Linux x64.")
+        raise SystemExit(f"Unsupported computer ({name}): use Windows x64 or macOS (Apple silicon or Intel).")
     return name
 
 
@@ -251,7 +251,7 @@ def main():
         raise SystemExit("Python 3.12 or newer is required.")
     for program in ("git", "cmake", "ninja", "make", "pkg-config"):
         if shutil.which(program) is None:
-            raise SystemExit(f"'{program}' is required (macOS: brew install cmake ninja pkg-config; Linux: your package manager).")
+            raise SystemExit(f"'{program}' is required (macOS: brew install cmake ninja pkg-config).")
     name = host()
     sdk = install_sdk(name)
     install_utmt(name)

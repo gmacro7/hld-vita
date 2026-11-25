@@ -8,7 +8,6 @@ You need Hyper Light Drifter on Steam. This kit contains no game files.
    Windows:  double-click "HLD Vita Builder.bat"
    macOS:    double-click "HLD Vita Builder.command"
              (first time: right-click > Open, because it is not from the App Store)
-   Linux:    run ./hld-vita-builder.sh in a terminal
 
 2. Sign in to Steam if asked
    If the August 2016 build of the game is not already on this computer, the builder downloads it from Steam

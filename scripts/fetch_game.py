@@ -36,7 +36,6 @@ def steam_content_folders():
     roots = [
         home / "Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS",  # macOS (console download)
         home / "Library/Application Support/Steam",
-        home / ".steam/steam", home / ".local/share/Steam", home / ".var/app/com.valvesoftware.Steam/.local/share/Steam",
         Path("C:/Program Files (x86)/Steam"), Path("C:/Program Files/Steam"),
     ]
     if os.environ.get("STEAM_DIR"):

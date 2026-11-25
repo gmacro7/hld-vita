@@ -2,7 +2,7 @@
 """HLD Vita Builder: make the Hyper Light Drifter PS Vita app from your own copy of the game, in one step.
 
 Run it through the launcher for your computer ("HLD Vita Builder.bat" on Windows, "HLD Vita Builder.command" on
-macOS, "hld-vita-builder.sh" on Linux), or directly: python3 scripts/kit_build.py [--qr] [--game FOLDER]
+macOS), or directly: python3 scripts/kit_build.py [--qr] [--game FOLDER]
 
 What it does, all in this folder:
  1. downloads the pinned tools it needs (VitaSDK compiler, UndertaleModTool, Python packages; checksummed);
