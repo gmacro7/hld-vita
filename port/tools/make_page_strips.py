@@ -37,6 +37,8 @@ out = Path(options.out)
 out.mkdir(parents=True, exist_ok=True)
 total = 0
 for page in range(count):
+    if page and page % 25 == 0:
+        print(f"{page}/{count} pages", flush=True)
     entry = struct.unpack_from("<I", data, txtr + 4 + 4 * page)[0]
     blob = struct.unpack_from("<I", data, entry + 4)[0]
     end = data.index(b"IEND", blob) + 8

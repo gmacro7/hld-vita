@@ -39,6 +39,22 @@ def step(text):
     print(f"\n==> {text}", flush=True)
 
 
+LOG = OUT / "compile.log"
+
+
+def quiet(argv, what):
+    """Run a compiler/linker step with its (warning-heavy) output in port/build-out/compile.log; show the tail only
+    if it fails."""
+    with LOG.open("a", encoding="utf-8", errors="replace") as log:
+        log.write(f"\n### {what}\n")
+        log.flush()
+        result = subprocess.run(argv, cwd=OUT, stdout=log, stderr=subprocess.STDOUT)
+    if result.returncode != 0:
+        tail = LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
+        print("\n".join(tail))
+        raise SystemExit(f"{what} failed; the full output is in {LOG}")
+
+
 def ensure_python_packages():
     """Re-run inside deps/venv (numpy, Pillow, lz4) if this Python is not it."""
     venv = DEPS / "venv"
@@ -108,14 +124,17 @@ def compiler(argv, sdk):
 def compile_game_code(recipe, sdk, parts):
     step(f"Compiling the interpreter and {len(parts)} translated parts")
     vm = compiler(substitute(recipe["vm_compile"], sdk), sdk)
-    result = subprocess.run(vm, cwd=OUT, capture_output=True, text=True)
+    LOG.unlink(missing_ok=True)
+    result = subprocess.run(vm, cwd=OUT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    LOG.write_text("### interpreter (vm-portable.c)\n" + result.stdout + result.stderr, encoding="utf-8")
     if result.returncode != 0:
-        sys.stderr.write(result.stderr)
-        raise SystemExit("The interpreter failed to compile.")
+        print("\n".join(result.stderr.splitlines()[-25:]))
+        raise SystemExit(f"The interpreter failed to compile; the full output is in {LOG}")
     unmatched = result.stderr.count("[-Wmissing-profile]") + result.stderr.count("[-Wcoverage-mismatch]")
     print(f"interpreter compiled ({unmatched} functions without matching profile data)")
     base = compiler(substitute(recipe["part_compile"], sdk), sdk)
     source_index = next(i for i, token in enumerate(base) if token.endswith(".c") and not token.startswith("-"))
+    print("(this takes a few minutes and prints nothing until it is done)", flush=True)
     objects, running = [], []
     for part in parts:
         argv = list(base)
@@ -123,13 +142,18 @@ def compile_game_code(recipe, sdk, parts):
         argv[argv.index("-o") + 1] = part.with_suffix(".obj").name
         argv[argv.index("-MF") + 1] = part.with_suffix(".d").name
         objects.append(part.with_suffix(".obj"))
-        running.append(subprocess.Popen(argv, cwd=OUT))
-        if len(running) >= (os.cpu_count() or 4):
-            if running.pop(0).wait() != 0:
-                raise SystemExit("A translated part failed to compile.")
-    for process in running:
-        if process.wait() != 0:
-            raise SystemExit("A translated part failed to compile.")
+        log = part.with_suffix(".log").open("w", encoding="utf-8", errors="replace")
+        running.append((subprocess.Popen(argv, cwd=OUT, stdout=log, stderr=subprocess.STDOUT), log, part))
+    for process, log, part in running:
+        code = process.wait()
+        log.close()
+        text = part.with_suffix(".log").read_text(encoding="utf-8", errors="replace")
+        with LOG.open("a", encoding="utf-8", errors="replace") as combined:
+            combined.write(f"\n### {part.name}\n{text}")
+        if code != 0:
+            print("\n".join(text.splitlines()[-25:]))
+            raise SystemExit(f"{part.name} failed to compile; the full output is in {LOG}")
+    print(f"compiled {len(parts)} translated parts", flush=True)
     return [OUT / "vm.obj", *objects]
 
 
@@ -141,11 +165,11 @@ def link(recipe, sdk, objects):
             argv += [str(p) for p in objects]
         else:
             argv.append(token)
-    subprocess.run(argv, cwd=OUT, check=True)
+    quiet(argv, "Linking")
     elf = OUT / "butterscotch"
-    subprocess.run([str(exe(sdk / "bin" / "vita-elf-create")), str(elf), str(OUT / "butterscotch.velf")], check=True)
-    subprocess.run([str(exe(sdk / "bin" / "vita-make-fself")), "-c", str(OUT / "butterscotch.velf"),
-                    str(OUT / "eboot.bin")], check=True)
+    quiet([str(exe(sdk / "bin" / "vita-elf-create")), str(elf), str(OUT / "butterscotch.velf")], "vita-elf-create")
+    quiet([str(exe(sdk / "bin" / "vita-make-fself")), "-c", str(OUT / "butterscotch.velf"), str(OUT / "eboot.bin")],
+          "vita-make-fself")
     sfo = OUT / "param.sfo"
     subprocess.run([str(exe(sdk / "bin" / "vita-mksfoex")), "-s", f"TITLE_ID={TITLE_ID}", "-s",
                     f"APP_VER={recipe['version']}", "-s", f"CONTENT_ID=HB0001-{TITLE_ID}_00-0000000000000000",
