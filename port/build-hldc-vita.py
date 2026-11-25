@@ -3520,7 +3520,9 @@ def write_package(destination):
     with ZipFile(destination, "w", ZIP_DEFLATED) as zipped:
         zipped.write(sfo, "sce_sys/param.sfo")
         zipped.write(out / "eboot.bin", "eboot.bin")
-        art = root / "assets" / "livearea"
+        sys.path.insert(0, str(root / "scripts"))
+        from make_livearea import livearea_folder
+        art = livearea_folder(root)  # from your game's splash.png (work/livearea), or the placeholders in assets/
         zipped.write(art / "icon0.png", "sce_sys/icon0.png")
         for name in ("bg.png", "startup.png", "template.xml"):
             zipped.write(art / name, f"sce_sys/livearea/contents/{name}")

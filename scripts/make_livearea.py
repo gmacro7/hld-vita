@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Make plain placeholder LiveArea images in assets/livearea (icon0.png 128x128, bg.png 840x500, startup.png 280x158).
+"""LiveArea images (icon0.png 128x128, bg.png 840x500, startup.png 280x158).
+
+Builds use the game's own key art when they can: livearea_folder() crops and scales YOUR copy's splash.png into
+work/livearea (git-ignored, never shipped). Without it they use plain placeholders made here in assets/livearea.
 
 They are original, abstract images (a gradient, a few lines and the title in a plain font), so the repository
 ships no game art. To use your own, drop 8-bit indexed PNGs with the same names and sizes into assets/livearea;
@@ -44,6 +47,46 @@ def save(image, name):
         return
     image.convert("P", palette=Image.Palette.ADAPTIVE, colors=256).save(path, optimize=True)
     print(f"wrote {path.relative_to(OUT.parents[1])}")
+
+
+def from_game(splash, out):
+    """LiveArea images from YOUR copy of the game: its splash.png (960x540 key art) cropped and scaled, written to
+    work/livearea (never committed or shipped). Returns False if the game has no usable splash.png."""
+    try:
+        art = Image.open(splash).convert("RGB")
+    except (OSError, ValueError):
+        return False
+    if art.size != (960, 540):
+        return False
+    out.mkdir(parents=True, exist_ok=True)
+
+    def cover(image, size):
+        scale = max(size[0] / image.width, size[1] / image.height)
+        scaled = image.resize((round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS)
+        left, top = (scaled.width - size[0]) // 2, (scaled.height - size[1]) // 2
+        return scaled.crop((left, top, left + size[0], top + size[1]))
+
+    def indexed(image, name):
+        image.convert("P", palette=Image.Palette.ADAPTIVE, colors=256).save(out / name, optimize=True)
+
+    indexed(cover(art, (840, 500)), "bg.png")
+    indexed(cover(art, (280, 158)), "startup.png")
+    # The bubble icon: a square around the character, right of centre in the key art.
+    indexed(art.crop((380, 20, 740, 380)).resize((128, 128), Image.Resampling.LANCZOS), "icon0.png")
+    template = OUT / "template.xml"
+    (out / "template.xml").write_bytes(template.read_bytes())
+    return True
+
+
+def livearea_folder(root):
+    """The LiveArea images a build packages: made from the game's splash.png when possible, else the placeholders."""
+    root = Path(root)
+    made = root / "work" / "livearea"
+    splash = root / "work" / "game" / "splash.png"
+    if (made / "icon0.png").is_file() or (splash.is_file() and from_game(splash, made)):
+        return made
+    main()
+    return OUT
 
 
 def main():

@@ -152,7 +152,8 @@ def link(recipe, sdk, objects):
                     "-d", "ATTRIBUTE2=12", "Hyper Light Drifter", str(sfo)], check=True)
     package = ROOT / "build" / f"HyperLightDrifter-{TITLE_ID}.vpk"
     package.parent.mkdir(exist_ok=True)
-    art = ROOT / "assets" / "livearea"
+    from make_livearea import livearea_folder
+    art = livearea_folder(ROOT)  # from your game's splash.png (work/livearea), or the plain placeholders
     with ZipFile(package, "w", ZIP_DEFLATED) as zipped:
         zipped.write(sfo, "sce_sys/param.sfo")
         zipped.write(OUT / "eboot.bin", "eboot.bin")

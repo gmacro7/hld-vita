@@ -60,8 +60,6 @@ def main():
         raise SystemExit("Run python3 scripts/bootstrap.py first.")
     if not (ROOT / "work" / "decompiled").is_dir():
         raise SystemExit("Run python3 scripts/prepare_game.py <your game folder> first.")
-    if not (ROOT / "assets" / "livearea" / "icon0.png").is_file():
-        subprocess.run([sys.executable, str(ROOT / "scripts" / "make_livearea.py")], check=True)
     if options.clean:
         shutil.rmtree(ENGINE_BUILD, ignore_errors=True)
     configure_engine()
