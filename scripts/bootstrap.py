@@ -141,8 +141,10 @@ def install_vitagl(sdk):
     if not (source / ".git").is_dir():
         subprocess.run(["git", "clone", "--quiet", MANIFEST["vitaGL"]["url"], str(source)], check=True)
     subprocess.run(["git", "-C", str(source), "checkout", "--quiet", commit], check=True)
-    subprocess.run([sys.executable, str(DEPS / "fix_vitagl_softfp_sdk.py"), "--source", str(source),
-                    "--vitasdk", str(sdk)], check=True)
+    # Its compile commands are kept: the port's build recompiles a few vitaGL files with its own patches using them.
+    with (DEPS / "vitagl-build.log").open("w") as log:
+        subprocess.run([sys.executable, str(DEPS / "fix_vitagl_softfp_sdk.py"), "--source", str(source),
+                        "--vitasdk", str(sdk)], check=True, stdout=log, stderr=subprocess.STDOUT)
     # The engine links a second build of the same commit with the port's patch (deps/patches): it adds
     # scene_finish_pending(), which completes pending GPU work for a pixel read without starting a new scene.
     patched = DEPS / "vitaGL-hldvm"

@@ -16,6 +16,7 @@ data.win
 /deps/vitaGL-hldvm/
 /deps/src/
 /deps/*.a
+/deps/vitagl-build.log
 /deps/venv/
 /deps/*.o
 /deps/*.dylib

@@ -156,7 +156,8 @@ def build_patched_vitagl_library(root: Path, out: Path, sdk: Path, name: str, pa
         args = shlex.split(command)
         args[0] = str(sdk / "arm-vita-eabi-gcc")
         # The installed archive uses the adapter in VitaSDK's GXM stubs.
-        args.remove("-DHAVE_SOFTFP_ABI")
+        if "-DHAVE_SOFTFP_ABI" in args:
+            args.remove("-DHAVE_SOFTFP_ABI")
         args[args.index("-Isource")] = f"-I{source}"
         args[args.index("-o") + 1:] = [str(obj), str(target)]
         target.write_text(patch((source / f"{unit}.c").read_text()))
