@@ -86,7 +86,7 @@ def livearea_folder(root):
     root = Path(root)
     made = root / "work" / "livearea"
     splash = root / "work" / "game" / "splash.png"
-    if (made / "icon0.png").is_file() or (splash.is_file() and from_game(splash, made)):
+    if splash.is_file() and from_game(splash, made):  # remade on every build, so framing changes apply
         return made
     main()
     return OUT
