@@ -1,5 +1,6 @@
 """Install the isolated HLD 2016 runtime and verify the Vita executable."""
 from argparse import ArgumentParser
+import re
 from contextlib import closing
 from ftplib import FTP, error_perm, error_temp
 from hashlib import sha256
@@ -80,7 +81,7 @@ def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("host")
     parser.add_argument("package", type=Path)
-    parser.add_argument("--title", choices=(TITLE, "HLDVMTEST"), default=TITLE)
+    parser.add_argument("--title", default="HLDVM2016", type=lambda t: t if re.fullmatch(r"[A-Z0-9]{9}", t) else parser.error("--title must be 9 capital letters or digits"))
     args = parser.parse_args()
     allow_transfer_scheduling()
     with ZipFile(args.package) as package:
