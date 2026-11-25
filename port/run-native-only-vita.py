@@ -26,6 +26,7 @@ parser = ArgumentParser(description=__doc__)
 parser.add_argument("host")
 parser.add_argument("room")
 parser.add_argument("--seconds", type=float, default=45)
+parser.add_argument("--title", default="HLDVMTEST", help="title ID of the app to install and launch")
 parser.add_argument("--log", type=Path, default=proof / "native-only-vita.log")
 parser.add_argument("--package", default="arm-hldc")
 parser.add_argument("--capture", type=Path, help="save frame 720 as this PNG")
@@ -53,11 +54,11 @@ def ftp():
     return connection
 
 
-command(options.host, "quit HLDVMTEST")
+command(options.host, "quit " + options.title)
 time.sleep(10)  # a launch while the previous instance is still shutting down gets killed during boot
 if not options.no_install:
     subprocess.run([sys.executable, str(proof / "install-vita.py"), options.host,
-                    str(proof / options.package / "hld-async-test.vpk"), "--title", "HLDVMTEST"], check=True)
+                    str(proof / options.package / "hld-async-test.vpk"), "--title", options.title], check=True)
     time.sleep(15)  # let the system finish promoting the package before launching it
 # The feature markers enabled in Codex's 02.78-stack hardware runs (compact-stack-rm_EL_MegaHugeLAB@1206,629.log).
 CODEX_FEATURES = ("archive-audio-reads", "builtin-mask-overlap", "collision-target-views", "display-clear", "mine-entry",
@@ -119,7 +120,7 @@ with ftp() as connection:
 command(options.host, "nosleep on")
 command(options.host, "screen on")
 time.sleep(5)  # let the display wake before the game's first vblank wait
-print(command(options.host, "launch HLDVMTEST"), flush=True)
+print(command(options.host, "launch " + options.title), flush=True)
 # A launch occasionally stalls during boot; wait for the room, relaunch once if it never arrives.
 def room_loaded():
     data = BytesIO()
@@ -143,7 +144,7 @@ if not room_loaded():
         options.log.with_suffix(".stall.log").write_bytes(stalled.getvalue())  # kept for diagnosing the stall
     except Exception:
         pass
-    command(options.host, "quit HLDVMTEST")
+    command(options.host, "quit " + options.title)
     time.sleep(10)
     with ftp() as connection:
         try:
@@ -152,12 +153,12 @@ if not room_loaded():
             pass
         # The stalled boot may already have consumed the launch marker (test-room.txt is removed when read).
         connection.storbinary("STOR " + MARKER, BytesIO(marker_text.encode() + b"\n"))
-    print(command(options.host, "launch HLDVMTEST"), flush=True)
+    print(command(options.host, "launch " + options.title), flush=True)
     started = time.time()
     while time.time() - started < 100 and not room_loaded():
         time.sleep(10)
 time.sleep(options.seconds)
-command(options.host, "quit HLDVMTEST")
+command(options.host, "quit " + options.title)
 time.sleep(2)
 log = BytesIO()
 with ftp() as connection:
