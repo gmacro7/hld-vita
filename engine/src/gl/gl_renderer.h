@@ -59,6 +59,9 @@ typedef struct {
 typedef struct {
     GLOverlayProgram lit;
     GLOverlayProgram withoutHardLight;
+    // The whole shader, built with the fast compiler settings, for frames with pulse, bloom or dimmed overlays.
+    GLOverlayProgram general;
+    GLint generalPulse, generalBloom, generalBrightness;
     GMLShader* original;
     GLint pulseLocation;
     GLint bloomLocation;

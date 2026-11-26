@@ -374,17 +374,21 @@ static uint32_t glBoundSurfaceBit(const GLRenderer* gl) {
 
 static bool glUseOptimizedOverlay(GLModernRenderer* modernGl, const GMLShader* shader) {
     GLOverlayVariant* variant = &modernGl->overlayVariant;
-    if (!variant->valid || variant->original != shader || !(variant->pulse <= 0.0f &&
-        variant->bloom <= 0.0f && variant->brightness >= 1.0f)) return false;
+    if (!variant->valid || variant->original != shader) return false;
     if (variant->compare && (modernGl->base.base.runner->frameCount / 180) % 2 == 0) return false;
-    GLOverlayProgram* program = &variant->lit;
-    if (variant->hardLightBottom == 0.0f && variant->withoutHardLight.valid) program = &variant->withoutHardLight;
-    if (!program->valid) return false;
+    GLOverlayProgram* program = nullptr;
+    if (variant->pulse <= 0.0f && variant->bloom <= 0.0f && variant->brightness >= 1.0f) {
+        program = &variant->lit;
+        if (variant->hardLightBottom == 0.0f && variant->withoutHardLight.valid) program = &variant->withoutHardLight;
+        if (!program->valid) program = nullptr;
+    }
+    if (program == nullptr && variant->general.valid) program = &variant->general;
+    if (program == nullptr) return false;
 
     modernGl->optimizedOverlayDraws++;
     if (!program->used) {
-        logInfo("GL: selected optimized screen overlays (hard light %s)\n",
-            program == &variant->withoutHardLight ? "off" : "available");
+        logInfo("GL: selected optimized screen overlays (%s)\n", program == &variant->general ? "pulse/bloom/dimmed" :
+            program == &variant->withoutHardLight ? "hard light off" : "hard light available");
         program->used = true;
     }
     glUseProgram(program->program.shaderId);
@@ -400,6 +404,11 @@ static bool glUseOptimizedOverlay(GLModernRenderer* modernGl, const GMLShader* s
             case 4: glUniform4fv(uniform->location, 1, uniform->values); break;
         }
         uniform->dirty = false;
+    }
+    if (program == &variant->general) {
+        glUniform1f(variant->generalPulse, variant->pulse);
+        glUniform1f(variant->generalBloom, variant->bloom);
+        glUniform1f(variant->generalBrightness, variant->brightness);
     }
     return true;
 }
@@ -892,9 +901,25 @@ static void glCreateOverlayVariants(GLOverlayVariant* variant, GMLShader* shader
         }
         if (optimize) vglSetupRuntimeShaderCompiler(SHARK_OPT_SAFE, 0, 0, 0);
     }
+    if (optimize) {
+        // Pulse (the magenta screen pulse), bloom and dimmed overlays used to fall back to the original program,
+        // built with the safe compiler settings, for the whole screen. Same source, fast settings, live uniforms.
+        snprintf(source, capacity, "%s\n// overlay shader O3 general\n", fragmentSource);
+        vglSetupRuntimeShaderCompiler(SHARK_OPT_FAST, 0, 0, 0);
+        glLinkOverlayProgram(&variant->general, "shd_ScreenOverlays optimized", shader, asset, vertexSource, source);
+        vglSetupRuntimeShaderCompiler(SHARK_OPT_SAFE, 0, 0, 0);
+        if (variant->general.valid) {
+            const GLuint id = variant->general.program.shaderId;
+            variant->generalPulse = glGetUniformLocation(id, "in_pulse");
+            variant->generalBloom = glGetUniformLocation(id, "in_bloom");
+            variant->generalBrightness = glGetUniformLocation(id, "in_overlaysBrightness");
+            if (variant->generalPulse < 0 || variant->generalBloom < 0 || variant->generalBrightness < 0)
+                variant->general.valid = false;
+        }
+    }
     free(source);
     variant->original = shader;
-    variant->valid = variant->lit.valid || variant->withoutHardLight.valid;
+    variant->valid = variant->lit.valid || variant->withoutHardLight.valid || variant->general.valid;
 }
 
 static void glCreateHldDistortionBase(GLModernRenderer* modernGl, DataWin* dataWin) {
@@ -1384,6 +1409,8 @@ static void glDestroy(Renderer* renderer) {
     freeShader(&modernGl->overlayVariant.withoutHardLight.program);
     free(modernGl->overlayVariant.lit.uniforms);
     free(modernGl->overlayVariant.withoutHardLight.uniforms);
+    freeShader(&modernGl->overlayVariant.general.program);
+    free(modernGl->overlayVariant.general.uniforms);
 #endif
 
     repeat(modernGl->gmlShaderCount, i) {
@@ -3827,7 +3854,8 @@ static void glRecordOverlayUniform(GLOverlayVariant* variant, const GMLShader* s
     for (uint32_t i = 0; i < shader->uniformCount; ++i) {
         if (shader->uniforms[i].location != location) continue;
         variant->valid = glRememberOverlayUniform(&variant->lit, i, values, count) &&
-            glRememberOverlayUniform(&variant->withoutHardLight, i, values, count);
+            glRememberOverlayUniform(&variant->withoutHardLight, i, values, count) &&
+            glRememberOverlayUniform(&variant->general, i, values, count);
         return;
     }
     variant->valid = false;
