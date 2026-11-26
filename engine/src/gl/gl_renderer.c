@@ -862,6 +862,24 @@ static void glLinkOverlayProgram(GLOverlayProgram* program, const char* name, GM
     program->valid = true;
 }
 
+// The pulse's twelve taps each offset their read by sin() of the red value accumulated so far, so every texture read
+// waited for the previous one. Taking the wobble from the red value the taps start from makes the reads independent;
+// the smear and its strength are unchanged, only the jitter pattern differs slightly.
+static bool glIndependentPulseTaps(char* source, size_t capacity) {
+    char* block = strstr(source, "in_pulse > 0.0");
+    char* loop = block != nullptr ? strstr(block, "for(") : nullptr;
+    if (loop == nullptr) return false;
+    static const char declaration[] = "float hldPulseR = newColor.r; ";
+    const size_t length = sizeof(declaration) - 1, tail = strlen(loop) + 1;
+    if ((size_t)(loop - source) + length + tail > capacity) return false;
+    memmove(loop + length, loop, tail);
+    memcpy(loop, declaration, length);
+    unsigned replaced = 0;
+    for (char* at = strstr(loop, "sin(newColor.r*"); at != nullptr; at = strstr(at, "sin(newColor.r*"), ++replaced)
+        memcpy(at, "sin(hldPulseR *", 15);
+    return replaced > 0;
+}
+
 static bool glSubstituteOverlayDeclaration(char* source, size_t capacity, const char* declaration, const char* replacement) {
     char* start = strstr(source, declaration);
     if (start == nullptr) return false;
@@ -884,7 +902,7 @@ static void glCreateOverlayVariants(GLOverlayVariant* variant, GMLShader* shader
     if (variant->pulseLocation < 0 || variant->bloomLocation < 0 || variant->brightnessLocation < 0 ||
         variant->hardLightLocation < 0) return;
 
-    size_t capacity = strlen(fragmentSource) + 160;
+    size_t capacity = strlen(fragmentSource) + 224;
     char* source = safeMalloc(capacity);
     // VitaGL's cache key uses source text, so mark changes in compiler settings.
     snprintf(source, capacity, "%s%s", fragmentSource, optimize ? "\n// overlay shader O3\n" : "");
@@ -905,6 +923,7 @@ static void glCreateOverlayVariants(GLOverlayVariant* variant, GMLShader* shader
         // Pulse (the magenta screen pulse), bloom and dimmed overlays used to fall back to the original program,
         // built with the safe compiler settings, for the whole screen. Same source, fast settings, live uniforms.
         snprintf(source, capacity, "%s\n// overlay shader O3 general\n", fragmentSource);
+        if (glIndependentPulseTaps(source, capacity)) logInfo("GL: screen pulse taps read independently\n");
         vglSetupRuntimeShaderCompiler(SHARK_OPT_FAST, 0, 0, 0);
         glLinkOverlayProgram(&variant->general, "shd_ScreenOverlays optimized", shader, asset, vertexSource, source);
         vglSetupRuntimeShaderCompiler(SHARK_OPT_SAFE, 0, 0, 0);

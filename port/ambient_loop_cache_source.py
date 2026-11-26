@@ -15,13 +15,21 @@ cache has room for are decoded; long music keeps streaming.
 
 from runtime_verification_source import replace_once
 
-CONDITION = '''        ma->base.dw->gen8.wadVersion == 15 && sound->name != nullptr &&
+CONDITION = '''    if (sound != nullptr && !inAudo && loop && ma->base.dw->gen8.gameID == 742741103 &&
+        ma->base.dw->gen8.wadVersion == 15 && sound->name != nullptr &&
         strncmp(sound->name, "MUS_", 4) == 0) {'''
+
+# Large external effects (the boss door music, wind and snow beds, jingles: 100-450 KB of Vorbis, up to 8 MB of PCM)
+# were decoded whole on the main thread at every play (too big for the cache): 2.4 s for the door music. They stream.
+NEW_CONDITION = '''    if (sound != nullptr && !inAudo && ma->base.dw->gen8.gameID == 742741103 &&
+        ma->base.dw->gen8.wadVersion == 15 && sound->name != nullptr &&
+        ((loop && strncmp(sound->name, "MUS_", 4) == 0 && !hldLoopUseCache(ma, soundIndex, sound)) ||
+         hldStreamLargeEffect(ma, soundIndex, sound))) {'''
 
 HELPER = r'''
 // ===[ Ambient loop cache ]===
 enum { HLD_LOOP_CACHE_FILE_LIMIT = 160 * 1024, HLD_LOOP_IDLE = 0, HLD_LOOP_QUEUED = 1, HLD_LOOP_READY = 2, HLD_LOOP_DONE = 3 };
-typedef struct { int state; char* path; short* pcm; int samples, channels, rate; size_t reserve; } HldLoopJob;
+typedef struct { int state; char* path; short* pcm; int samples, channels, rate; size_t reserve; bool uploaded; } HldLoopJob;
 static HldLoopJob* hldLoopJobs;
 static int32_t* hldLoopFileBytes; // per sound: -1 unknown, else the .ogg size
 static uint32_t hldLoopCount;
@@ -89,19 +97,19 @@ bool hldLoopUseCache(AlAudioSystem* ma, int32_t soundIndex, Sound* sound) {
         job->pcm = NULL;
         job->state = HLD_LOOP_DONE;
         if (buffer == 0) return false;
-        if (hldSfxBuffers == NULL) {
-            hldSfxCount = dw->sond.count;
-            hldSfxBuffers = (ALuint*) calloc(hldSfxCount, sizeof(ALuint));
-            if (hldSfxBuffers == NULL) { alDeleteBuffers(1, &buffer); return false; }
-        }
+        if (!hldSfxEnsureTables(dw) || !hldSfxMakeRoom(ma, bytes)) { alDeleteBuffers(1, &buffer); return false; }
         hldSfxBuffers[soundIndex] = buffer;
+        hldSfxBytesOf[soundIndex] = (uint32_t) bytes;
+        hldSfxLastUse[soundIndex] = ++hldSfxClock;
         hldSfxBytes += bytes;
         ++hldSfxStores;
+        job->uploaded = true;
         if (++hldLoopUploads % 10 == 1) logInfo("Audio: cached ambient loop %s bytes=%u loops=%u cache_bytes=%u\n",
                                                 sound->name, (unsigned) bytes, hldLoopUploads, (unsigned) hldSfxBytes);
         return true;
     }
-    if (state != HLD_LOOP_IDLE) return false;
+    if (state == HLD_LOOP_DONE && job->uploaded) job->state = HLD_LOOP_IDLE;  // evicted from the cache: decode it again
+    else if (state != HLD_LOOP_IDLE) return false;
     if (hldLoopFileBytes[soundIndex] < 0) {
         char* path = resolveExternalPath(ma, sound);
         int32_t fileBytes = INT32_MAX;
@@ -115,10 +123,11 @@ bool hldLoopUseCache(AlAudioSystem* ma, int32_t soundIndex, Sound* sound) {
         }
         hldLoopFileBytes[soundIndex] = fileBytes;
     }
+    job->uploaded = false;
     const int32_t fileBytes = hldLoopFileBytes[soundIndex];
     // Vorbis at these rates decodes to well under 16x its size; keep that much headroom in the cache.
     const size_t reserve = (size_t) fileBytes * 16;
-    if (fileBytes > HLD_LOOP_CACHE_FILE_LIMIT || hldSfxBytes + hldLoopPending + reserve > HLD_SFX_CACHE_LIMIT) {
+    if (fileBytes > HLD_LOOP_CACHE_FILE_LIMIT || hldLoopPending + reserve > HLD_SFX_CACHE_LIMIT / 2) {
         job->state = HLD_LOOP_DONE;  // streams, as before
         return false;
     }
@@ -129,15 +138,54 @@ bool hldLoopUseCache(AlAudioSystem* ma, int32_t soundIndex, Sound* sound) {
     __atomic_store_n(&job->state, HLD_LOOP_QUEUED, __ATOMIC_RELEASE);
     return false;  // this start streams; the decoded copy is used from the next start on
 }
+
+enum { HLD_STREAM_EFFECT_FILE_BYTES = 96 * 1024 };
+static int32_t* hldExternalBytes; // per sound: -1 unknown, else the external file's size
+bool hldStreamLargeEffect(AlAudioSystem* ma, int32_t soundIndex, Sound* sound) {
+    if (strncmp(sound->name, "MUS_", 4) == 0 || soundIndex < 0) return false;
+    const DataWin* dw = ma->base.audioGroups[0];
+    if (dw == NULL || (uint32_t) soundIndex >= dw->sond.count) return false;
+    if (hldExternalBytes == NULL) {
+        hldExternalBytes = (int32_t*) malloc(dw->sond.count * sizeof(int32_t));
+        if (hldExternalBytes == NULL) return false;
+        for (uint32_t i = 0; i < dw->sond.count; ++i) hldExternalBytes[i] = -1;
+    }
+    if (hldExternalBytes[soundIndex] < 0) {
+        char* path = resolveExternalPath(ma, sound);
+        int32_t bytes = 0;
+        if (path != NULL) {
+            FILE* file = fopen(path, "rb");
+            if (file != NULL) {
+                // Only Vorbis files stream here; anything else keeps the regular path.
+                char magic[4] = {0};
+                if (fread(magic, 1, 4, file) == 4 && memcmp(magic, "OggS", 4) == 0 && fseek(file, 0, SEEK_END) == 0) {
+                    const long end = ftell(file);
+                    if (end > 0) bytes = (int32_t) end;
+                }
+                fclose(file);
+            }
+            free(path);
+        }
+        hldExternalBytes[soundIndex] = bytes;
+        if (bytes > HLD_STREAM_EFFECT_FILE_BYTES) logInfo("Audio: streaming large effect %s (%d KB)\n", sound->name, bytes / 1024);
+    }
+    return hldExternalBytes[soundIndex] > HLD_STREAM_EFFECT_FILE_BYTES;
+}
 '''
 
 
 def with_ambient_loop_cache(code):
     assert "static ALuint* hldSfxBuffers;" in code, "needs effect_buffer_cache_source first"
-    code = replace_once(code, CONDITION, CONDITION.replace(
-        'strncmp(sound->name, "MUS_", 4) == 0) {',
-        'strncmp(sound->name, "MUS_", 4) == 0 && !hldLoopUseCache(ma, soundIndex, sound)) {'))
+    code = replace_once(code, CONDITION, NEW_CONDITION)
     code = replace_once(code, "static int32_t maPlaySound(AudioSystem* audio, int32_t soundIndex, int32_t priority, bool loop) {",
                         "bool hldLoopUseCache(AlAudioSystem* ma, int32_t soundIndex, Sound* sound);\n"
+                        "bool hldStreamLargeEffect(AlAudioSystem* ma, int32_t soundIndex, Sound* sound);\n"
                         "static int32_t maPlaySound(AudioSystem* audio, int32_t soundIndex, int32_t priority, bool loop) {")
     return code + HELPER
+
+
+def with_room_sound_hook(code):
+    """runner.c: tell the effect cache's warm worker which room started (effect_buffer_cache_source prefetches)."""
+    anchor = "    Room* room = &dataWin->room.rooms[roomIndex];\n"
+    return replace_once(code, anchor, anchor + "    { extern void hldSfxRoomStarted(const char*) __attribute__((weak)); "
+                                               "if (hldSfxRoomStarted) hldSfxRoomStarted(room->name); }\n")

@@ -1447,6 +1447,9 @@ void hldLogMemoryHeadroom(void) {
         # Bullet trails as plain records instead of imageFade instances (native_trails_source; marker native-trails).
         from native_trails_source import with_native_trails_runner, with_native_trails_builtins
         code = with_native_trails_runner(code) if name == "runner.c" else with_native_trails_builtins(code)
+    if HLDC_TRANSLATE and name == "runner.c":
+        from ambient_loop_cache_source import with_room_sound_hook
+        code = with_room_sound_hook(code)
     dst.write_text(code)
     argv = shlex.split(next(line for line in commands if " -c " in line and line.endswith(str(path))))
     obj = dst.with_suffix(".obj")
