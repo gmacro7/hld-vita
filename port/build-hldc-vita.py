@@ -768,7 +768,7 @@ elif options.runtime_refinements:
     elif options.focused_step_profile:
         directory, version = "arm-focused-step-profile", "02.71"
     elif options.stream_slot_obstacles:
-        directory, version = os.environ.get("HLDC_DIR", "arm-hldc"), "02.84"
+        directory, version = os.environ.get("HLDC_DIR", "arm-hldc"), "02.85"
     elif options.stream_line_mask_tiles:
         directory, version = "arm-stream-line-mask-tiles", "02.77"
     elif options.obstacle_line_buckets:
