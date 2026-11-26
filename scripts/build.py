@@ -71,7 +71,7 @@ def main():
                        HLDC_VITA_ROWS="0", HLDC_BOOT_PREFETCH="0")
     subprocess.run([str(DEPS / "venv" / "bin" / "python"), "build-hldc-vita.py", *PORT_FLAGS],
                    cwd=ROOT / "port", check=True, env=environment)
-    vpk = sorted((ROOT / "build").glob("HyperLightDrifter-*.vpk"))
+    vpk = sorted((ROOT / "build").glob("HyperLightDrifter-*.vpk"), key=lambda p: p.stat().st_mtime)
     print(f"Built {vpk[-1] if vpk else 'the VPK'}. Next: python3 scripts/install.py <vita-ip>  (see README.md)")
 
 

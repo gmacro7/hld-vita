@@ -1654,7 +1654,8 @@ def translate(entries, directory, assets, variables, per_part=150, stats=False):
     shared = ("#define HLDC_STATS\n" if stats else "") + SHARED
     parts, current, table = [], [], []
     for number, name in enumerate(entries):
-        tree = parse((Path(directory) / f"{name}.gml").read_text())
+        from native_trails_source import gml_source_rewrite
+        tree = parse(gml_source_rewrite(name, (Path(directory) / f"{name}.gml").read_text()))
         symbol = f"hldc_{number}"
         emitter = Emitter(name, f"HLDC_CODE({c_string(name)})", assets, variables)
         current += emitter.function(tree, symbol)

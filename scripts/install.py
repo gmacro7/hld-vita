@@ -33,7 +33,7 @@ FEATURES = ("archive-audio-reads", "builtin-mask-overlap", "collision-target-vie
             "persistent-terrain-bounds", "phase-mine-trigger", "quiet-shadow-log", "reduced-vm-work", "scene-queries",
             "native-movement-helpers", "scenery-cursor", "scenery-guard", "scenery-skip", "terrain-sweep",
             "prefetch-ambience", "native-consolidated-runtime", "native-scenery-draw-lists",
-            "native-direct-instance-ids", "defer-loop-length", "native-enemy-shadow")
+            "native-direct-instance-ids", "defer-loop-length", "native-enemy-shadow", "native-trails")
 
 
 def mkdirs(ftp, made, path):

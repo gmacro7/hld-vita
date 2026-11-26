@@ -768,7 +768,7 @@ elif options.runtime_refinements:
     elif options.focused_step_profile:
         directory, version = "arm-focused-step-profile", "02.71"
     elif options.stream_slot_obstacles:
-        directory, version = os.environ.get("HLDC_DIR", "arm-hldc"), "02.78"
+        directory, version = os.environ.get("HLDC_DIR", "arm-hldc"), "02.83"
     elif options.stream_line_mask_tiles:
         directory, version = "arm-stream-line-mask-tiles", "02.77"
     elif options.obstacle_line_buckets:
@@ -1196,6 +1196,9 @@ def compile_source(name, edit):
             code = with_present_hitch_profile(code)
     if (options.stream_placement or os.environ.get("HLDC_STEP_SAMPLE_ALL") == "1") and name == "runner.c":
         code = with_step_event_profile(code)
+    if os.environ.get("HLDC_CHURN_PROFILE") == "1" and name == "runner.c":
+        from churn_profile_source import with_churn_profile
+        code = with_churn_profile(code)
     if HLDC_NATIVE_ONLY and name == "loop.c":
         from native_only_source import with_native_only_loop
         code = with_native_only_loop(code)
@@ -1440,6 +1443,10 @@ void hldLogMemoryHeadroom(void) {
         # Full-height 960x544 picture (vita_rows_source): four more rows of the world instead of black edges.
         from vita_rows_source import with_vita_rows_builtins, with_vita_rows_renderer
         code = with_vita_rows_builtins(code) if name == "vm_builtins.c" else with_vita_rows_renderer(code)
+    if HLDC_TRANSLATE and os.environ.get("HLDC_NATIVE_TRAILS", "1") == "1" and name in ("runner.c", "vm_builtins.c"):
+        # Bullet trails as plain records instead of imageFade instances (native_trails_source; marker native-trails).
+        from native_trails_source import with_native_trails_runner, with_native_trails_builtins
+        code = with_native_trails_runner(code) if name == "runner.c" else with_native_trails_builtins(code)
     dst.write_text(code)
     argv = shlex.split(next(line for line in commands if " -c " in line and line.endswith(str(path))))
     obj = dst.with_suffix(".obj")
@@ -2671,6 +2678,9 @@ elif options.deferred_audio:
             code = with_graphics_command_loop(code, render_tail=options.graphics_render_tail)
         if options.stream_placement or os.environ.get("HLDC_STEP_SAMPLE_ALL") == "1":
             code = with_step_event_report(code)
+        if os.environ.get("HLDC_CHURN_PROFILE") == "1":
+            from churn_profile_source import with_churn_report
+            code = with_churn_report(code)
         if options.frame_deadlines or measured_runtime:
             code = with_frame_deadlines(code, compare=options.frame_deadlines)
         if options.frame_headroom:
@@ -3334,6 +3344,12 @@ void hldReportQuietShadowLog(int frame) {
             if HLDC_TRANSLATE:
                 from effect_buffer_cache_source import with_effect_buffer_cache
                 code = with_effect_buffer_cache(code)
+                if os.environ.get("HLDC_AMBIENT_LOOP_CACHE", "1") == "1":
+                    from ambient_loop_cache_source import with_ambient_loop_cache
+                    code = with_ambient_loop_cache(code)
+            if os.environ.get("HLDC_AUDIO_PROFILE") == "1":
+                from audio_update_profile_source import with_audio_update_profile
+                code = with_audio_update_profile(code)
             return code
 
         replacements.update([compile_source("audio/openal/al_audio_system.c", prepare_audio)])
@@ -3514,7 +3530,7 @@ def write_package(destination):
     sfo = out / "param.sfo"
     subprocess.run([sdk / "vita-mksfoex", "-s", f"TITLE_ID={TITLE_ID}", "-s", f"APP_VER={version}",
                     "-s", f"CONTENT_ID=HB0001-{TITLE_ID}_00-0000000000000000",
-                    "-d", "ATTRIBUTE2=12", "Hyper Light Drifter", sfo], check=True)
+                    "-d", "ATTRIBUTE2=12", "Hyper Light Drifter" if TITLE_ID == "HLDV00001" else "HLD Test", sfo], check=True)
     with ZipFile(destination, "w", ZIP_DEFLATED) as zipped:
         zipped.write(sfo, "sce_sys/param.sfo")
         zipped.write(out / "eboot.bin", "eboot.bin")
