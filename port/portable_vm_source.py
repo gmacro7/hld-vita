@@ -34,4 +34,6 @@ def portable_vm_source(generated):
     if HLDC_ENTRIES:
         from gml_compiler_source import with_compiled_gml
         generated = with_compiled_gml(generated, HLDC_ENTRIES)
-    return generated
+    # Last, so its code is appended after everything the steps above add: no profiled line moves.
+    from music_sync_group_source import with_music_sync_groups
+    return with_music_sync_groups(generated)  # the game's music needs audio sync groups (engine has none)
